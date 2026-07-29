@@ -56,10 +56,9 @@ function showApp() {
   document.getElementById('app').style.display = 'flex';
 
   // User info in sidebar
-  const roleClass = { administrator: 'badge-admin', operator: 'badge-operator', viewer: 'badge-viewer' };
   document.getElementById('user-info').innerHTML = `
     <strong>${escHtml(APP.user.username)}</strong>
-    <span class="badge ${roleClass[APP.user.role] || ''}">${APP.user.role}</span>
+    <span class="user-role">${APP.user.role}</span>
   `;
 
   // Show/hide role-restricted nav items

@@ -279,7 +279,187 @@ router.get('/trial-balance/excel', requireLogin, async (req, res) => {
   res.end();
 });
 
-// ─── TRANSACTION PDF ──────────────────────────────────────────────────────
+// ─── TRANSACTION LIST PDF ─────────────────────────────────────────────────
+router.get('/transactions/pdf', requireLogin, (req, res) => {
+  const { account, debit, credit, date_from, date_to, status } = req.query;
+
+  let sql = `
+    SELECT t.*,
+      da.account_name AS debit_party_name,
+      ca.account_name AS credit_party_name
+    FROM transactions t
+    LEFT JOIN accounts da ON t.debit_party_id = da.id
+    LEFT JOIN accounts ca ON t.credit_party_id = ca.id
+    WHERE 1=1
+  `;
+  const params = [];
+  if (account)   { sql += ` AND (t.debit_party_id = ? OR t.credit_party_id = ?)`; params.push(account, account); }
+  if (debit)     { sql += ` AND t.debit_party_id = ?`;  params.push(debit); }
+  if (credit)    { sql += ` AND t.credit_party_id = ?`; params.push(credit); }
+  if (status)    { sql += ` AND t.status = ?`;           params.push(status); }
+  if (date_from) { sql += ` AND t.transaction_date >= ?`; params.push(date_from); }
+  if (date_to)   { sql += ` AND t.transaction_date <= ?`; params.push(date_to); }
+  sql += ` ORDER BY t.transaction_date DESC, t.id DESC`;
+
+  const rows = db.prepare(sql).all(...params);
+
+  const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="transactions_${Date.now()}.pdf"`);
+  doc.pipe(res);
+
+  doc.fontSize(15).font('Helvetica-Bold').text('Transaction & Ledger Management System', { align: 'center' });
+  doc.moveDown(0.2);
+  doc.fontSize(11).font('Helvetica').text('Transactions List', { align: 'center' });
+  if (date_from || date_to) {
+    doc.fontSize(9).text(`Period: ${date_from || 'Start'} to ${date_to || 'End'}`, { align: 'center' });
+  }
+  doc.moveDown(0.5);
+
+  // Columns: Voucher, Date, Debit Party, Credit Party, Amount, D.Comm, C.Comm, Status
+  const cols  = [30,  130, 200, 310, 420, 490, 545, 600];
+  const widths= [95,   65,  105, 105,  65,  50,  50,  75];
+  const heads = ['Voucher #', 'Date', 'Debit Party', 'Credit Party', 'Amount', 'D.Comm', 'C.Comm', 'Status'];
+
+  doc.fontSize(8).font('Helvetica-Bold');
+  heads.forEach((h, i) => doc.text(h, cols[i], doc.y, { width: widths[i] }));
+  doc.moveDown(0.3);
+  doc.moveTo(30, doc.y).lineTo(780, doc.y).stroke();
+  doc.moveDown(0.2);
+
+  let totalAmt = 0, totalDC = 0, totalCC = 0;
+  doc.font('Helvetica').fontSize(7.5);
+  rows.forEach(r => {
+    if (doc.y > 530) { doc.addPage(); }
+    const y = doc.y;
+    doc.text(r.voucher_number || '', cols[0], y, { width: widths[0] });
+    doc.text(r.transaction_date || '', cols[1], y, { width: widths[1] });
+    doc.text(r.debit_party_name || '-', cols[2], y, { width: widths[2] });
+    doc.text(r.credit_party_name || '-', cols[3], y, { width: widths[3] });
+    doc.text((r.amount || 0).toFixed(2), cols[4], y, { width: widths[4] });
+    doc.text((r.debit_commission || 0).toFixed(2), cols[5], y, { width: widths[5] });
+    doc.text((r.credit_commission || 0).toFixed(2), cols[6], y, { width: widths[6] });
+    doc.text(r.status || '', cols[7], y, { width: widths[7] });
+    doc.moveDown(0.65);
+    totalAmt += r.amount || 0;
+    totalDC  += r.debit_commission || 0;
+    totalCC  += r.credit_commission || 0;
+  });
+
+  doc.moveTo(30, doc.y).lineTo(780, doc.y).stroke();
+  doc.moveDown(0.3);
+  doc.font('Helvetica-Bold').fontSize(8);
+  const ty = doc.y;
+  doc.text('TOTAL', cols[0], ty, { width: 350 });
+  doc.text(totalAmt.toFixed(2), cols[4], ty, { width: widths[4] });
+  doc.text(totalDC.toFixed(2),  cols[5], ty, { width: widths[5] });
+  doc.text(totalCC.toFixed(2),  cols[6], ty, { width: widths[6] });
+  doc.moveDown(0.5);
+  doc.font('Helvetica').fontSize(8).text(`${rows.length} transaction(s)`, { align: 'right' });
+
+  doc.end();
+});
+
+// ─── TRANSACTION LIST EXCEL ───────────────────────────────────────────────
+router.get('/transactions/excel', requireLogin, async (req, res) => {
+  const { account, debit, credit, date_from, date_to, status } = req.query;
+
+  let sql = `
+    SELECT t.*,
+      da.account_name AS debit_party_name,
+      ca.account_name AS credit_party_name,
+      u.username AS created_by_name
+    FROM transactions t
+    LEFT JOIN accounts da ON t.debit_party_id = da.id
+    LEFT JOIN accounts ca ON t.credit_party_id = ca.id
+    LEFT JOIN users u ON t.created_by = u.id
+    WHERE 1=1
+  `;
+  const params = [];
+  if (account)   { sql += ` AND (t.debit_party_id = ? OR t.credit_party_id = ?)`; params.push(account, account); }
+  if (debit)     { sql += ` AND t.debit_party_id = ?`;  params.push(debit); }
+  if (credit)    { sql += ` AND t.credit_party_id = ?`; params.push(credit); }
+  if (status)    { sql += ` AND t.status = ?`;           params.push(status); }
+  if (date_from) { sql += ` AND t.transaction_date >= ?`; params.push(date_from); }
+  if (date_to)   { sql += ` AND t.transaction_date <= ?`; params.push(date_to); }
+  sql += ` ORDER BY t.transaction_date DESC, t.id DESC`;
+
+  const rows = db.prepare(sql).all(...params);
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'TLMS';
+  const ws = wb.addWorksheet('Transactions');
+
+  ws.mergeCells('A1:J1');
+  ws.getCell('A1').value = 'Transactions List';
+  ws.getCell('A1').font = { bold: true, size: 14 };
+  ws.getCell('A1').alignment = { horizontal: 'center' };
+
+  if (date_from || date_to) {
+    ws.mergeCells('A2:J2');
+    ws.getCell('A2').value = `Period: ${date_from || 'Start'} to ${date_to || 'End'}`;
+    ws.getCell('A2').alignment = { horizontal: 'center' };
+  }
+
+  ws.addRow([]);
+  const headerRow = ws.addRow([
+    'Voucher #', 'Date', 'Transaction City', 'Debit Party', 'Credit Party',
+    'Amount', 'Debit Rate%', 'Debit Commission', 'Credit Rate%', 'Credit Commission',
+    'Status', 'Created By', 'Remarks', 'Message'
+  ]);
+  headerRow.font = { bold: true };
+  headerRow.eachCell(cell => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.border = { bottom: { style: 'thin' } };
+  });
+
+  let totalAmt = 0, totalDC = 0, totalCC = 0;
+  rows.forEach(r => {
+    ws.addRow([
+      r.voucher_number,
+      r.transaction_date,
+      r.transaction_city || '',
+      r.debit_party_name || '',
+      r.credit_party_name || '',
+      parseFloat((r.amount || 0).toFixed(2)),
+      parseFloat((r.debit_rate || 0).toFixed(2)),
+      parseFloat((r.debit_commission || 0).toFixed(2)),
+      parseFloat((r.credit_rate || 0).toFixed(2)),
+      parseFloat((r.credit_commission || 0).toFixed(2)),
+      r.status,
+      r.created_by_name || '',
+      r.remarks || '',
+      r.message || ''
+    ]);
+    totalAmt += r.amount || 0;
+    totalDC  += r.debit_commission || 0;
+    totalCC  += r.credit_commission || 0;
+  });
+
+  const totalRow = ws.addRow([
+    'TOTAL', '', '', '', '',
+    parseFloat(totalAmt.toFixed(2)), '', parseFloat(totalDC.toFixed(2)),
+    '', parseFloat(totalCC.toFixed(2)), '', '', '', ''
+  ]);
+  totalRow.font = { bold: true };
+  totalRow.getCell(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } };
+  totalRow.getCell(8).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } };
+  totalRow.getCell(10).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } };
+
+  ws.columns = [
+    { width: 22 }, { width: 14 }, { width: 18 }, { width: 25 }, { width: 25 },
+    { width: 14 }, { width: 12 }, { width: 18 }, { width: 12 }, { width: 18 },
+    { width: 22 }, { width: 16 }, { width: 25 }, { width: 30 }
+  ];
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="transactions_${Date.now()}.xlsx"`);
+  await wb.xlsx.write(res);
+  res.end();
+});
+
+// ─── TRANSACTION PDF (single voucher) ────────────────────────────────────
 router.get('/transaction/pdf', requireLogin, (req, res) => {
   const { id } = req.query;
   if (!id) return res.status(400).json({ error: 'Transaction id required' });

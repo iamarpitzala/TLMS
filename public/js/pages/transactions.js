@@ -55,6 +55,12 @@ async function renderTransactions() {
     </div>
 
     <div class="card">
+      <div id="tx-export-bar" style="display:none;margin-bottom:1rem">
+        <div class="btn-group">
+          <button class="btn btn-outline btn-sm" onclick="exportTransactions('pdf')">📄 Export PDF</button>
+          <button class="btn btn-outline btn-sm" onclick="exportTransactions('excel')">📊 Export Excel</button>
+        </div>
+      </div>
       <div id="tx-table-wrap">
         <div class="loading"><span class="spinner"></span> Loading...</div>
       </div>
@@ -70,6 +76,8 @@ async function loadTransactions(p = 1) {
   const wrap = document.getElementById('tx-table-wrap');
   if (!wrap) return;
   wrap.innerHTML = `<div class="loading"><span class="spinner"></span> Loading...</div>`;
+  const exportBar = document.getElementById('tx-export-bar');
+  if (exportBar) exportBar.style.display = 'none';
 
   const q = API.buildQuery({
     account: document.getElementById('tx-f-account')?.value || '',
@@ -86,6 +94,8 @@ async function loadTransactions(p = 1) {
   try {
     const result = await API.get('/api/transactions' + q);
     renderTxTable(result);
+    const exportBar = document.getElementById('tx-export-bar');
+    if (exportBar) exportBar.style.display = result.data.length > 0 ? 'block' : 'none';
   } catch (e) {
     wrap.innerHTML = `<div class="alert alert-error">${escHtml(e.message)}</div>`;
   }
@@ -390,4 +400,16 @@ async function submitTransaction() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '✓ Submit Transaction'; }
   }
+}
+
+function exportTransactions(format) {
+  const q = API.buildQuery({
+    account:   document.getElementById('tx-f-account')?.value  || '',
+    debit:     document.getElementById('tx-f-debit')?.value    || '',
+    credit:    document.getElementById('tx-f-credit')?.value   || '',
+    status:    document.getElementById('tx-f-status')?.value   || '',
+    date_from: document.getElementById('tx-f-from')?.value     || '',
+    date_to:   document.getElementById('tx-f-to')?.value       || ''
+  });
+  window.open(`/api/export/transactions/${format}${q}`, '_blank');
 }
