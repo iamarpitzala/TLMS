@@ -16,6 +16,10 @@ backups/
 *.log
 npm-debug.log*
 
+# IDE
+.vscode/
+.idea/
+
 # OS
 .DS_Store
 Thumbs.db
