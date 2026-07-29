@@ -1,5 +1,5 @@
 const express = require('express');
-const { db, nextVoucherNumber } = require('../db');
+const { db, nextVoucherNumber, istDate } = require('../db');
 const { requireLogin, requireOperator } = require('../middleware/auth');
 const audit = require('../middleware/audit');
 const router = express.Router();
@@ -79,7 +79,7 @@ router.post('/', requireOperator, (req, res) => {
   const cRate  = parseFloat(credit_rate) || 0;
   const dComm  = parseFloat((amt * dRate / 100).toFixed(2));
   const cComm  = parseFloat((amt * cRate / 100).toFixed(2));
-  const txDate = transaction_date || new Date().toISOString().slice(0, 10);
+  const txDate = transaction_date || istDate();
 
   const debitAccount  = db.prepare('SELECT * FROM accounts WHERE id = ? AND is_active = 1').get(debit_party_id);
   const creditAccount = db.prepare('SELECT * FROM accounts WHERE id = ? AND is_active = 1').get(credit_party_id);

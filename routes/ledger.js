@@ -58,7 +58,7 @@ router.patch('/:id/verify', requireOperator, (req, res) => {
 
   db.prepare(`
     UPDATE ledger_entries
-    SET is_verified=1, verified_by=?, verified_at=datetime('now'), is_locked=1
+    SET is_verified=1, verified_by=?, verified_at=now_ist(), is_locked=1
     WHERE id=?
   `).run(req.session.user.id, req.params.id);
 

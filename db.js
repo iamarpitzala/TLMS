@@ -8,6 +8,27 @@ const db = new Database(path.join(__dirname, 'tlms.db'));
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+// ─── IST timestamp helper ─────────────────────────────────────────────────
+// SQLite datetime('now') always returns UTC. We register a custom function
+// so all timestamps stored in the DB are in IST (UTC+5:30).
+function nowIST() {
+  const now = new Date();
+  // Offset UTC by +5:30
+  const ist = new Date(now.getTime() + (5 * 60 + 30) * 60 * 1000);
+  return ist.toISOString().slice(0, 19).replace('T', ' ');
+}
+db.function('now_ist', nowIST);
+
+// Convenience export so routes can use the same function
+function istTimestamp() {
+  return nowIST();
+}
+
+// IST date only (YYYY-MM-DD)
+function istDate() {
+  return nowIST().slice(0, 10);
+}
+
 function init() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -15,7 +36,7 @@ function init() {
       username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL CHECK(role IN ('administrator','operator','viewer')),
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (now_ist())
     );
 
     CREATE TABLE IF NOT EXISTS accounts (
@@ -27,14 +48,14 @@ function init() {
       group_name TEXT,
       parent_account TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (now_ist()),
+      updated_at TEXT DEFAULT (now_ist())
     );
 
     CREATE TABLE IF NOT EXISTS transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       voucher_number TEXT NOT NULL UNIQUE,
-      transaction_date TEXT NOT NULL DEFAULT (date('now')),
+      transaction_date TEXT NOT NULL DEFAULT (date(now_ist())),
       transaction_city TEXT,
       token_details TEXT,
       amount REAL NOT NULL,
@@ -50,7 +71,7 @@ function init() {
       credit_commission REAL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'Pending Verification',
       created_by INTEGER REFERENCES users(id),
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (now_ist())
     );
 
     CREATE TABLE IF NOT EXISTS ledger_entries (
@@ -67,7 +88,7 @@ function init() {
       verified_by INTEGER REFERENCES users(id),
       verified_at TEXT,
       is_locked INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (now_ist())
     );
 
     CREATE TABLE IF NOT EXISTS audit_log (
@@ -80,7 +101,7 @@ function init() {
       field_name TEXT,
       old_value TEXT,
       new_value TEXT,
-      timestamp TEXT DEFAULT (datetime('now'))
+      timestamp TEXT DEFAULT (now_ist())
     );
 
     CREATE TABLE IF NOT EXISTS voucher_counter (
@@ -111,11 +132,11 @@ function init() {
 }
 
 function nextVoucherNumber() {
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const today = istDate().replace(/-/g, '');
   const row = db.prepare('SELECT last_seq FROM voucher_counter WHERE id=1').get();
   const seq = row.last_seq + 1;
   db.prepare('UPDATE voucher_counter SET last_seq=? WHERE id=1').run(seq);
   return `VCH-${today}-${String(seq).padStart(5, '0')}`;
 }
 
-module.exports = { db, init, nextVoucherNumber };
+module.exports = { db, init, nextVoucherNumber, istTimestamp, istDate };

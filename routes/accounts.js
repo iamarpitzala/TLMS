@@ -86,7 +86,7 @@ router.put('/:id', requireOperator, (req, res) => {
 
   db.prepare(`
     UPDATE accounts SET account_name=?, mobile_number=?, opening_amount=?, balance_date=?,
-    group_name=?, parent_account=?, updated_at=datetime('now') WHERE id=?
+    group_name=?, parent_account=?, updated_at=now_ist() WHERE id=?
   `).run(
     account_name.trim(),
     mobile_number || null,
@@ -120,7 +120,7 @@ router.patch('/:id/disable', requireOperator, (req, res) => {
   if (!row) return res.status(404).json({ error: 'Account not found' });
 
   const newStatus = row.is_active === 1 ? 0 : 1;
-  db.prepare("UPDATE accounts SET is_active=?, updated_at=datetime('now') WHERE id=?").run(newStatus, id);
+  db.prepare("UPDATE accounts SET is_active=?, updated_at=now_ist() WHERE id=?").run(newStatus, id);
 
   audit(req, newStatus === 0 ? 'disable' : 'enable', 'accounts', parseInt(id),
     { is_active: row.is_active },
