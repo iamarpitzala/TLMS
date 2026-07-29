@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Environment — never commit real secrets
+.env
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+
+# Backups — large binary files, keep on server only
+backups/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
