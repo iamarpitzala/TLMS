@@ -1,6 +1,6 @@
 const express = require('express');
 const { db } = require('../db');
-const { requireLogin, requireOperator, requireAdmin } = require('../middleware/auth');
+const { requireLogin, requireOperator, requireAdmin, requireVerifier } = require('../middleware/auth');
 const audit = require('../middleware/audit');
 const router = express.Router();
 
@@ -50,8 +50,8 @@ router.get('/', requireLogin, (req, res) => {
   });
 });
 
-// PATCH /api/ledger/:id/verify
-router.patch('/:id/verify', requireOperator, (req, res) => {
+// PATCH /api/ledger/:id/verify — operator, administrator, or viewer
+router.patch('/:id/verify', requireVerifier, (req, res) => {
   const entry = db.prepare('SELECT * FROM ledger_entries WHERE id = ?').get(req.params.id);
   if (!entry) return res.status(404).json({ error: 'Ledger entry not found' });
   if (entry.is_locked) return res.status(403).json({ error: 'Entry is locked; only Administrator can modify' });

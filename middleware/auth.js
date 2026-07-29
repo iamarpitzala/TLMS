@@ -28,4 +28,9 @@ function requireAdmin(req, res, next) {
   return requireRole('administrator')(req, res, next);
 }
 
-module.exports = { requireLogin, requireRole, requireOperator, requireAdmin };
+// viewer, operator, or administrator (e.g. verify payments)
+function requireVerifier(req, res, next) {
+  return requireRole('viewer', 'operator', 'administrator')(req, res, next);
+}
+
+module.exports = { requireLogin, requireRole, requireOperator, requireAdmin, requireVerifier };
