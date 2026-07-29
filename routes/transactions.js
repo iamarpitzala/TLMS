@@ -1,6 +1,7 @@
 const express = require('express');
 const { db, nextVoucherNumber } = require('../db');
 const { requireLogin, requireOperator } = require('../middleware/auth');
+const audit = require('../middleware/audit');
 const router = express.Router();
 
 // GET /api/transactions — search/list
@@ -19,39 +20,20 @@ router.get('/', requireLogin, (req, res) => {
   `;
   const params = [];
 
-  if (account) {
-    sql += ` AND (t.debit_party_id = ? OR t.credit_party_id = ?)`;
-    params.push(account, account);
-  }
-  if (debit) {
-    sql += ` AND t.debit_party_id = ?`;
-    params.push(debit);
-  }
-  if (credit) {
-    sql += ` AND t.credit_party_id = ?`;
-    params.push(credit);
-  }
-  if (amount) {
-    sql += ` AND t.amount = ?`;
-    params.push(parseFloat(amount));
-  }
+  if (account) { sql += ` AND (t.debit_party_id = ? OR t.credit_party_id = ?)`; params.push(account, account); }
+  if (debit)   { sql += ` AND t.debit_party_id = ?`;   params.push(debit); }
+  if (credit)  { sql += ` AND t.credit_party_id = ?`;  params.push(credit); }
+  if (amount)  { sql += ` AND t.amount = ?`;            params.push(parseFloat(amount)); }
   if (city) {
     sql += ` AND (t.transaction_city LIKE ? OR t.wallet_city LIKE ? OR t.credit_wallet_city LIKE ?)`;
     const like = `%${city}%`;
     params.push(like, like, like);
   }
-  if (date_from) {
-    sql += ` AND t.transaction_date >= ?`;
-    params.push(date_from);
-  }
-  if (date_to) {
-    sql += ` AND t.transaction_date <= ?`;
-    params.push(date_to);
-  }
+  if (date_from) { sql += ` AND t.transaction_date >= ?`; params.push(date_from); }
+  if (date_to)   { sql += ` AND t.transaction_date <= ?`; params.push(date_to); }
 
   sql += ` ORDER BY t.transaction_date DESC, t.id DESC`;
 
-  // pagination
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const countSql = sql.replace(/SELECT t\.\*.*?FROM transactions t/s, 'SELECT COUNT(*) as total FROM transactions t');
   const total = db.prepare(countSql).get(...params);
@@ -77,7 +59,7 @@ router.get('/:id', requireLogin, (req, res) => {
   res.json(row);
 });
 
-// POST /api/transactions — create transaction (core workflow)
+// POST /api/transactions — create
 router.post('/', requireOperator, (req, res) => {
   const {
     transaction_date, transaction_city, token_details, amount,
@@ -92,24 +74,22 @@ router.post('/', requireOperator, (req, res) => {
     return res.status(400).json({ error: 'Debit Party and Credit Party are required' });
   }
 
-  const amt = parseFloat(amount);
-  const dRate = parseFloat(debit_rate) || 0;
-  const cRate = parseFloat(credit_rate) || 0;
-  const dComm = parseFloat((amt * dRate / 100).toFixed(2));
-  const cComm = parseFloat((amt * cRate / 100).toFixed(2));
+  const amt    = parseFloat(amount);
+  const dRate  = parseFloat(debit_rate)  || 0;
+  const cRate  = parseFloat(credit_rate) || 0;
+  const dComm  = parseFloat((amt * dRate / 100).toFixed(2));
+  const cComm  = parseFloat((amt * cRate / 100).toFixed(2));
   const txDate = transaction_date || new Date().toISOString().slice(0, 10);
 
-  const debitAccount = db.prepare('SELECT * FROM accounts WHERE id = ? AND is_active = 1').get(debit_party_id);
+  const debitAccount  = db.prepare('SELECT * FROM accounts WHERE id = ? AND is_active = 1').get(debit_party_id);
   const creditAccount = db.prepare('SELECT * FROM accounts WHERE id = ? AND is_active = 1').get(credit_party_id);
 
-  if (!debitAccount) return res.status(400).json({ error: 'Debit Party account not found or inactive' });
+  if (!debitAccount)  return res.status(400).json({ error: 'Debit Party account not found or inactive' });
   if (!creditAccount) return res.status(400).json({ error: 'Credit Party account not found or inactive' });
 
   const voucherNumber = nextVoucherNumber();
 
-  // All DB writes in a single transaction for atomicity
   const insertAll = db.transaction(() => {
-    // 1. Insert transaction record
     const txResult = db.prepare(`
       INSERT INTO transactions(
         voucher_number, transaction_date, transaction_city, token_details, amount,
@@ -125,21 +105,18 @@ router.post('/', requireOperator, (req, res) => {
     );
     const txId = txResult.lastInsertRowid;
 
-    // 2. Debit ledger entry (debit party owes)
     db.prepare(`
       INSERT INTO ledger_entries(account_id, transaction_id, entry_date, entry_type, particulars, message, brokerage, amount)
       VALUES(?,?,?,?,?,?,?,?)
     `).run(debit_party_id, txId, txDate, 'debit',
       `Txn to ${creditAccount.account_name} [${voucherNumber}]`, message || null, dComm, amt);
 
-    // 3. Credit ledger entry
     db.prepare(`
       INSERT INTO ledger_entries(account_id, transaction_id, entry_date, entry_type, particulars, message, brokerage, amount)
       VALUES(?,?,?,?,?,?,?,?)
     `).run(credit_party_id, txId, txDate, 'credit',
       `Txn from ${debitAccount.account_name} [${voucherNumber}]`, message || null, cComm, amt);
 
-    // 4. Commission entries (if applicable)
     if (dComm > 0) {
       db.prepare(`
         INSERT INTO ledger_entries(account_id, transaction_id, entry_date, entry_type, particulars, message, brokerage, amount)
@@ -167,6 +144,16 @@ router.post('/', requireOperator, (req, res) => {
       LEFT JOIN accounts ca ON t.credit_party_id = ca.id
       WHERE t.id = ?
     `).get(txId);
+
+    audit(req, 'create', 'transactions', txId, null, {
+      voucher_number: voucherNumber,
+      amount: amt,
+      debit_party: debitAccount.account_name,
+      credit_party: creditAccount.account_name,
+      debit_commission: dComm,
+      credit_commission: cComm
+    });
+
     res.status(201).json(created);
   } catch (err) {
     console.error('Transaction save error:', err);
