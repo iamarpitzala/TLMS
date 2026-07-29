@@ -294,3 +294,52 @@ tfoot td { background: #f8fafc; font-weight: 700; border-top: 2px solid #e5e7eb;
   .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
   .col-span-2, .col-span-3 { grid-column: span 1; }
 }
+
+/* ── Trial Balance grouped-header table ──────────────────────────────── */
+.tb-table thead tr:first-child th {
+  background: #1e3a5f;
+  color: #fff;
+  text-align: center;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  padding: 0.6rem 0.9rem;
+}
+.tb-table thead tr:second-child th,
+.tb-table thead tr + tr th {
+  background: #2c4f7c;
+  color: #e8f0fe;
+  text-align: right;
+  font-size: 0.8rem;
+  padding: 0.45rem 0.9rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+.tb-th-account {
+  background: #1e3a5f !important;
+  color: #fff !important;
+  text-align: left !important;
+  vertical-align: middle;
+}
+.tb-th-group {
+  background: #1e3a5f !important;
+  color: #fff !important;
+  text-align: center !important;
+  border-left: 1px solid rgba(255,255,255,0.2) !important;
+}
+.tb-th-sub {
+  background: #2c4f7c !important;
+  color: #cfe0ff !important;
+  text-align: right !important;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-left: 1px solid rgba(255,255,255,0.1) !important;
+}
+.tb-th-status {
+  background: #1e3a5f !important;
+  color: #fff !important;
+  text-align: center !important;
+  vertical-align: middle;
+}
+.tb-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tb-account-row:hover td { background: #f0f7ff; }

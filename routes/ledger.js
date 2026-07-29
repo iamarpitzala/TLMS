@@ -1,7 +1,6 @@
 const express = require('express');
 const { db } = require('../db');
-const { requireLogin, requireOperator, requireAdmin, requireVerifier } = require('../middleware/auth');
-const audit = require('../middleware/audit');
+const { requireLogin, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
 // GET /api/ledger/audit — must be declared BEFORE /:id routes
@@ -10,7 +9,7 @@ router.get('/audit', requireAdmin, (req, res) => {
   res.json(rows);
 });
 
-// GET /api/ledger — entries for an account
+// GET /api/ledger — read-only view of entries for an account
 router.get('/', requireLogin, (req, res) => {
   const { account_id, type, date_from, date_to } = req.query;
 
@@ -48,54 +47,6 @@ router.get('/', requireLogin, (req, res) => {
       amount: parseFloat(totalAmount.toFixed(2))
     }
   });
-});
-
-// PATCH /api/ledger/:id/verify — operator, administrator, or viewer
-router.patch('/:id/verify', requireVerifier, (req, res) => {
-  const entry = db.prepare('SELECT * FROM ledger_entries WHERE id = ?').get(req.params.id);
-  if (!entry) return res.status(404).json({ error: 'Ledger entry not found' });
-  if (entry.is_locked) return res.status(403).json({ error: 'Entry is locked; only Administrator can modify' });
-
-  db.prepare(`
-    UPDATE ledger_entries
-    SET is_verified=1, verified_by=?, verified_at=now_ist(), is_locked=1
-    WHERE id=?
-  `).run(req.session.user.id, req.params.id);
-
-  audit(req, 'verify', 'ledger_entries', entry.id,
-    { is_verified: 0, is_locked: 0 },
-    { is_verified: 1, is_locked: 1, amount: entry.amount, entry_type: entry.entry_type }
-  );
-
-  const updated = db.prepare('SELECT * FROM ledger_entries WHERE id = ?').get(req.params.id);
-  res.json(updated);
-});
-
-// PATCH /api/ledger/:id/unlock — admin only
-router.patch('/:id/unlock', requireAdmin, (req, res) => {
-  const entry = db.prepare('SELECT * FROM ledger_entries WHERE id = ?').get(req.params.id);
-  if (!entry) return res.status(404).json({ error: 'Ledger entry not found' });
-
-  const { field, new_value } = req.body;
-
-  audit(req, 'unlock', 'ledger_entries', entry.id,
-    { is_locked: 1, is_verified: 1, [field || 'is_locked']: field ? entry[field] : 1 },
-    { is_locked: 0, is_verified: 0, [field || 'is_locked']: field ? new_value : 0 }
-  );
-
-  if (field && new_value !== undefined) {
-    const allowed = ['particulars', 'message', 'brokerage', 'amount', 'entry_date'];
-    if (!allowed.includes(field)) {
-      return res.status(400).json({ error: 'Field not editable: ' + field });
-    }
-    db.prepare(`UPDATE ledger_entries SET is_locked=0, is_verified=0, ${field}=? WHERE id=?`)
-      .run(new_value, entry.id);
-  } else {
-    db.prepare(`UPDATE ledger_entries SET is_locked=0, is_verified=0 WHERE id=?`).run(entry.id);
-  }
-
-  const updated = db.prepare('SELECT * FROM ledger_entries WHERE id = ?').get(req.params.id);
-  res.json(updated);
 });
 
 module.exports = router;

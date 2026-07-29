@@ -106,9 +106,6 @@ function renderLedgerTable(rows, totals) {
     return;
   }
 
-  const canVerify = APP.isOperator();
-  const isAdmin = APP.isAdmin();
-
   wrap.innerHTML = `
     <div class="table-wrap">
       <table id="ledger-table">
@@ -123,18 +120,17 @@ function renderLedgerTable(rows, totals) {
             <th>Amount</th>
             <th>Verified</th>
             <th>Verified By</th>
-            ${canVerify || isAdmin ? '<th>Actions</th>' : ''}
           </tr>
         </thead>
         <tbody>
-          ${rows.map(r => renderLedgerRow(r, canVerify, isAdmin)).join('')}
+          ${rows.map(r => renderLedgerRow(r)).join('')}
         </tbody>
         <tfoot>
           <tr>
             <td colspan="5" style="text-align:right;font-weight:700">TOTAL</td>
             <td>${fmtNum(totals.brokerage)}</td>
             <td>${fmtNum(totals.amount)}</td>
-            <td colspan="${canVerify || isAdmin ? 3 : 2}"></td>
+            <td colspan="2"></td>
           </tr>
         </tfoot>
       </table>
@@ -142,7 +138,7 @@ function renderLedgerTable(rows, totals) {
   `;
 }
 
-function renderLedgerRow(r, canVerify, isAdmin) {
+function renderLedgerRow(r) {
   const typeBadge = {
     debit: '<span class="badge badge-pending">Debit</span>',
     credit: '<span class="badge badge-verified">Credit</span>',
@@ -159,15 +155,6 @@ function renderLedgerRow(r, canVerify, isAdmin) {
     ? `<span>${escHtml(r.verified_by_name)}</span>`
     : '-';
 
-  let actions = '';
-  if (!r.is_locked && canVerify) {
-    actions = `<button class="btn btn-success btn-xs" onclick="verifyEntry(${r.id})">✓ Verify</button>`;
-  } else if (r.is_locked && isAdmin) {
-    actions = `<button class="btn btn-warning btn-xs" onclick="unlockEntry(${r.id})">🔓 Unlock</button>`;
-  } else if (r.is_locked && !isAdmin) {
-    actions = `<span class="badge badge-locked">🔒 Locked</span>`;
-  }
-
   return `
     <tr id="ledger-row-${r.id}" ${r.is_locked ? 'style="background:#f0f9ff"' : ''}>
       <td>${r.id}</td>
@@ -179,32 +166,8 @@ function renderLedgerRow(r, canVerify, isAdmin) {
       <td><strong>${fmtNum(r.amount)}</strong></td>
       <td>${verifiedCell}</td>
       <td>${verifiedByCell}</td>
-      ${canVerify || isAdmin ? `<td>${actions}</td>` : ''}
     </tr>
   `;
-}
-
-async function verifyEntry(id) {
-  if (!confirm('Mark this entry as verified? It will be locked after verification.')) return;
-  try {
-    const updated = await API.patch('/api/ledger/' + id + '/verify');
-    toast('Entry verified and locked', 'success');
-    // Refresh row in-place
-    loadLedger();
-  } catch (e) {
-    toast(e.message, 'error');
-  }
-}
-
-async function unlockEntry(id) {
-  if (!confirm('Unlock this verified entry? The action will be recorded in the audit log.')) return;
-  try {
-    await API.patch('/api/ledger/' + id + '/unlock', {});
-    toast('Entry unlocked. You may now re-verify after editing.', 'success');
-    loadLedger();
-  } catch (e) {
-    toast(e.message, 'error');
-  }
 }
 
 function exportLedger(format) {
