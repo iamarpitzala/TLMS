@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Transaction & Ledger Management System",
   "main": "server.js",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "NODE_ENV=development node server.js",
