@@ -139,11 +139,26 @@ function renderLedgerTable(rows, totals) {
 }
 
 function renderLedgerRow(r) {
+  const isDebit  = r.entry_type === 'debit'  || r.entry_type === 'commission_debit';
+  const isCredit = r.entry_type === 'credit' || r.entry_type === 'commission_credit';
+
+  const rowBg = r.is_locked
+    ? '#f0f9ff'
+    : isDebit  ? '#fff5f5'
+    : isCredit ? '#f0fdf4'
+    : '';
+
+  const amtStyle = isDebit
+    ? 'color:#c62828;font-weight:700'
+    : isCredit
+    ? 'color:#2e7d32;font-weight:700'
+    : 'font-weight:700';
+
   const typeBadge = {
-    debit: '<span class="badge badge-pending">Debit</span>',
-    credit: '<span class="badge badge-verified">Credit</span>',
-    commission_debit: '<span class="badge badge-admin">Comm.D</span>',
-    commission_credit: '<span class="badge badge-operator">Comm.C</span>'
+    debit:             '<span class="badge badge-debit">Debit</span>',
+    credit:            '<span class="badge badge-credit">Credit</span>',
+    commission_debit:  '<span class="badge badge-comm-debit">Comm.D</span>',
+    commission_credit: '<span class="badge badge-comm-credit">Comm.C</span>'
   }[r.entry_type] || r.entry_type;
 
   const verifiedCell = r.is_verified
@@ -156,14 +171,14 @@ function renderLedgerRow(r) {
     : '-';
 
   return `
-    <tr id="ledger-row-${r.id}" ${r.is_locked ? 'style="background:#f0f9ff"' : ''}>
+    <tr id="ledger-row-${r.id}" style="background:${rowBg}">
       <td>${r.id}</td>
       <td>${fmtDate(r.entry_date)}</td>
       <td>${typeBadge}</td>
       <td>${escHtml(r.particulars) || '-'}</td>
       <td>${escHtml(r.message) || '-'}</td>
       <td>${fmtNum(r.brokerage)}</td>
-      <td><strong>${fmtNum(r.amount)}</strong></td>
+      <td style="${amtStyle}">${fmtNum(r.amount)}</td>
       <td>${verifiedCell}</td>
       <td>${verifiedByCell}</td>
     </tr>

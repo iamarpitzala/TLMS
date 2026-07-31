@@ -196,14 +196,19 @@ tfoot td { background: #f8fafc; font-weight: 700; border-top: 2px solid #e5e7eb;
   display: inline-block; padding: 2px 8px; border-radius: 20px;
   font-size: 0.75rem; font-weight: 600; white-space: nowrap;
 }
-.badge-pending { background: #fff3e0; color: #e65100; }
+.badge-pending  { background: #fff3e0; color: #e65100; }
 .badge-verified { background: #e8f5e9; color: #2e7d32; }
-.badge-locked { background: #e3f2fd; color: #1565c0; }
-.badge-active { background: #e8f5e9; color: #2e7d32; }
+.badge-locked   { background: #e3f2fd; color: #1565c0; }
+.badge-active   { background: #e8f5e9; color: #2e7d32; }
 .badge-inactive { background: #fce4ec; color: #c62828; }
-.badge-admin { background: #f3e5f5; color: #6a1b9a; }
+.badge-admin    { background: #f3e5f5; color: #6a1b9a; }
 .badge-operator { background: #e3f2fd; color: #1565c0; }
-.badge-viewer { background: #f1f5f9; color: #475569; }
+.badge-viewer   { background: #f1f5f9; color: #475569; }
+/* Ledger entry type badges */
+.badge-debit       { background: #fdecea; color: #c62828; font-weight: 700; }
+.badge-credit      { background: #e8f5e9; color: #2e7d32; font-weight: 700; }
+.badge-comm-debit  { background: #fde8e8; color: #b71c1c; }
+.badge-comm-credit { background: #e0f2e9; color: #1b5e20; }
 
 /* ── Alerts ──────────────────────────────────────────────────────────── */
 .alert {
