@@ -94,6 +94,9 @@ async function navigate(pageName) {
   if (pageName === 'audit' && !APP.isAdmin()) {
     pageName = 'dashboard';
   }
+  if (pageName === 'users' && !APP.isAdmin()) {
+    pageName = 'dashboard';
+  }
 
   // Update nav highlight
   document.querySelectorAll('.nav-item').forEach(item => {
@@ -113,5 +116,6 @@ async function navigate(pageName) {
     case 'ledger':         await renderLedger(); break;
     case 'trial-balance':  await renderTrialBalance(); break;
     case 'audit':          await renderAudit(); break;
+    case 'users':          await renderUsers(); break;
   }
 }

@@ -12,9 +12,12 @@ router.post('/login', (req, res) => {
   }
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username.trim());
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-    // Log failed login attempt
     audit(req, 'login_failed', 'users', null, null, { username: username.trim() });
     return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  if (user.is_active === 0) {
+    audit(req, 'login_failed', 'users', user.id, null, { username: username.trim(), reason: 'account deactivated' });
+    return res.status(403).json({ error: 'Account is deactivated. Contact your administrator.' });
   }
   req.session.user = { id: user.id, username: user.username, role: user.role };
   // Log successful login

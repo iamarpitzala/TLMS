@@ -52,6 +52,7 @@ app.use(session({
 
 // ─── Routes ───────────────────────────────────────────────────────────────
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
 app.use('/api/accounts', require('./routes/accounts'));
 app.use('/api/transactions', require('./routes/transactions'));
 app.use('/api/ledger', require('./routes/ledger'));

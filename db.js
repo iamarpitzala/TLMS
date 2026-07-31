@@ -36,6 +36,7 @@ function init() {
       username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL CHECK(role IN ('administrator','operator','viewer')),
+      is_active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT DEFAULT (now_ist())
     );
 
@@ -125,6 +126,11 @@ function init() {
   }
   if (!txCols.includes('verified_at')) {
     db.exec('ALTER TABLE transactions ADD COLUMN verified_at TEXT');
+  }
+
+  const userCols = db.prepare('PRAGMA table_info(users)').all().map(c => c.name);
+  if (!userCols.includes('is_active')) {
+    db.exec('ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1');
   }
 
   // Seed default users if none exist
