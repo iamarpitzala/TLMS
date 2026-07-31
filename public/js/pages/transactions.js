@@ -154,9 +154,10 @@ function renderTxTable({ data, total, page, limit }) {
                 <div class="btn-group">
                   <button class="btn btn-outline btn-xs" onclick="viewTransaction(${tx.id})">👁 View</button>
                   <a href="/api/export/transaction/pdf?id=${tx.id}" target="_blank" class="btn btn-outline btn-xs">📄 PDF</a>
-                  ${APP.isOperator() && tx.status === 'Pending Verification'
-                    ? `<button class="btn btn-success btn-xs" onclick="verifyTransaction(${tx.id})">✓ Verify</button>`
-                    : ''}
+                  ${APP.isOperator() && tx.status === 'Pending Verification' ? `
+                    <button class="btn btn-outline btn-xs" onclick="editTransaction(${tx.id})">✏️ Edit</button>
+                    <button class="btn btn-success btn-xs" onclick="verifyTransaction(${tx.id})">✓ Verify</button>
+                  ` : ''}
                 </div>
               </td>
             </tr>
@@ -257,40 +258,41 @@ function openTransactionModal() {
   });
 }
 
-function buildTransactionForm() {
+function buildTransactionForm(tx = null) {
   const today = new Date().toISOString().slice(0, 10);
+  const v = (field, fallback = '') => tx ? (tx[field] ?? fallback) : fallback;
   return `
     <form id="tx-form" autocomplete="off">
       <div class="section-label">Transaction Details</div>
       <div class="form-grid-3">
         <div class="field-group">
           <label>Date</label>
-          <input type="date" id="tx-date" value="${today}" />
+          <input type="date" id="tx-date" value="${v('transaction_date', today)}" />
         </div>
         <div class="field-group">
           <label>Transaction City</label>
-          <input type="text" id="tx-city" placeholder="City name" />
+          <input type="text" id="tx-city" value="${escHtml(v('transaction_city'))}" placeholder="City name" />
         </div>
         <div class="field-group">
           <label>Token Details</label>
-          <input type="text" id="tx-token" placeholder="Token / reference" />
+          <input type="text" id="tx-token" value="${escHtml(v('token_details'))}" placeholder="Token / reference" />
         </div>
         <div class="field-group">
           <label class="required">Amount</label>
-          <input type="number" id="tx-amount" placeholder="0.00" step="0.01" min="0" required />
+          <input type="number" id="tx-amount" value="${v('amount', '')}" placeholder="0.00" step="0.01" min="0" required />
         </div>
         <div class="field-group">
           <label>Wallet City</label>
-          <input type="text" id="tx-wallet-city" placeholder="Wallet city" />
+          <input type="text" id="tx-wallet-city" value="${escHtml(v('wallet_city'))}" placeholder="Wallet city" />
         </div>
         <div class="field-group col-span-1">
           <label>Remarks</label>
-          <input type="text" id="tx-remarks" placeholder="Remarks..." />
+          <input type="text" id="tx-remarks" value="${escHtml(v('remarks'))}" placeholder="Remarks..." />
         </div>
       </div>
       <div class="field-group">
         <label>Message</label>
-        <textarea id="tx-message" rows="2" placeholder="Transaction message..."></textarea>
+        <textarea id="tx-message" rows="2" placeholder="Transaction message...">${escHtml(v('message'))}</textarea>
       </div>
 
       <hr class="divider" />
@@ -300,12 +302,12 @@ function buildTransactionForm() {
           <label class="required">Debit Party</label>
           <select id="tx-debit-party">
             <option value="">-- Select Account --</option>
-            ${APP.accountOptions()}
+            ${APP.accountOptions(v('debit_party_id'))}
           </select>
         </div>
         <div class="field-group">
           <label>Debit Rate (%)</label>
-          <input type="number" id="tx-debit-rate" value="0" step="0.01" min="0" max="100" placeholder="0.00" />
+          <input type="number" id="tx-debit-rate" value="${v('debit_rate', 0)}" step="0.01" min="0" max="100" placeholder="0.00" />
           <div id="debit-comm-display" class="commission-display" style="display:none"></div>
         </div>
       </div>
@@ -317,16 +319,16 @@ function buildTransactionForm() {
           <label class="required">Credit Party</label>
           <select id="tx-credit-party">
             <option value="">-- Select Account --</option>
-            ${APP.accountOptions()}
+            ${APP.accountOptions(v('credit_party_id'))}
           </select>
         </div>
         <div class="field-group">
           <label>Credit Wallet City</label>
-          <input type="text" id="tx-credit-wallet-city" placeholder="Credit wallet city" />
+          <input type="text" id="tx-credit-wallet-city" value="${escHtml(v('credit_wallet_city'))}" placeholder="Credit wallet city" />
         </div>
         <div class="field-group">
           <label>Credit Rate (%)</label>
-          <input type="number" id="tx-credit-rate" value="0" step="0.01" min="0" max="100" placeholder="0.00" />
+          <input type="number" id="tx-credit-rate" value="${v('credit_rate', 0)}" step="0.01" min="0" max="100" placeholder="0.00" />
           <div id="credit-comm-display" class="commission-display" style="display:none"></div>
         </div>
       </div>
@@ -416,6 +418,86 @@ async function submitTransaction() {
     errEl.style.display = 'block';
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '✓ Submit Transaction'; }
+  }
+}
+
+async function editTransaction(txId) {
+  if (!APP.isOperator()) { toast('Access denied', 'error'); return; }
+
+  let tx;
+  try {
+    tx = await API.get('/api/transactions/' + txId);
+  } catch (e) {
+    toast(e.message, 'error');
+    return;
+  }
+
+  if (tx.status === 'Verified') {
+    toast('Cannot edit a verified transaction.', 'error');
+    return;
+  }
+
+  Modal.open({
+    title: `Edit Transaction — ${tx.voucher_number}`,
+    size: 'lg',
+    body: buildTransactionForm(tx),
+    footer: `
+      <button class="btn btn-outline" onclick="Modal.close()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitEditTransaction(${txId})">💾 Save Changes</button>
+    `
+  });
+
+  ['tx-amount', 'tx-debit-rate', 'tx-credit-rate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateCommissionDisplays);
+  });
+  // Trigger once to show existing commission values
+  updateCommissionDisplays();
+}
+
+async function submitEditTransaction(txId) {
+  const errEl = document.getElementById('tx-form-error');
+  errEl.style.display = 'none';
+
+  const data = {
+    transaction_date:   document.getElementById('tx-date').value,
+    transaction_city:   document.getElementById('tx-city').value.trim(),
+    token_details:      document.getElementById('tx-token').value.trim(),
+    amount:             document.getElementById('tx-amount').value,
+    wallet_city:        document.getElementById('tx-wallet-city').value.trim(),
+    debit_party_id:     document.getElementById('tx-debit-party').value,
+    debit_rate:         document.getElementById('tx-debit-rate').value,
+    remarks:            document.getElementById('tx-remarks').value.trim(),
+    message:            document.getElementById('tx-message').value.trim(),
+    credit_wallet_city: document.getElementById('tx-credit-wallet-city').value.trim(),
+    credit_party_id:    document.getElementById('tx-credit-party').value,
+    credit_rate:        document.getElementById('tx-credit-rate').value
+  };
+
+  if (!data.amount || parseFloat(data.amount) <= 0) {
+    errEl.textContent = 'Amount is required and must be greater than 0.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!data.debit_party_id || !data.credit_party_id) {
+    errEl.textContent = 'Debit Party and Credit Party are required.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = Modal.footer.querySelector('.btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  try {
+    await API.patch('/api/transactions/' + txId, data);
+    toast('Transaction updated successfully', 'success');
+    Modal.close();
+    loadTransactions(txPage);
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Save Changes'; }
   }
 }
 

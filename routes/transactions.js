@@ -137,6 +137,90 @@ router.post('/', requireOperator, (req, res) => {
   }
 });
 
+// PATCH /api/transactions/:id — edit (only allowed while Pending Verification)
+router.patch('/:id', requireOperator, (req, res) => {
+  const tx = db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id);
+  if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+  if (tx.status === 'Verified') {
+    return res.status(403).json({ error: 'Cannot edit a verified transaction. Unlock ledger entries first if correction is needed.' });
+  }
+
+  const {
+    transaction_date, transaction_city, token_details, amount,
+    wallet_city, debit_party_id, debit_rate, remarks, message,
+    credit_wallet_city, credit_party_id, credit_rate
+  } = req.body;
+
+  if (!amount || isNaN(parseFloat(amount))) {
+    return res.status(400).json({ error: 'Amount is required and must be a number' });
+  }
+  if (!debit_party_id || !credit_party_id) {
+    return res.status(400).json({ error: 'Debit Party and Credit Party are required' });
+  }
+
+  const amt   = parseFloat(amount);
+  const dRate = parseFloat(debit_rate)  || 0;
+  const cRate = parseFloat(credit_rate) || 0;
+  const dComm = parseFloat((amt * dRate / 100).toFixed(2));
+  const cComm = parseFloat((amt * cRate / 100).toFixed(2));
+
+  const debitAccount  = db.prepare('SELECT * FROM accounts WHERE id = ? AND is_active = 1').get(debit_party_id);
+  const creditAccount = db.prepare('SELECT * FROM accounts WHERE id = ? AND is_active = 1').get(credit_party_id);
+  if (!debitAccount)  return res.status(400).json({ error: 'Debit Party account not found or inactive' });
+  if (!creditAccount) return res.status(400).json({ error: 'Credit Party account not found or inactive' });
+
+  db.prepare(`
+    UPDATE transactions SET
+      transaction_date  = ?,
+      transaction_city  = ?,
+      token_details     = ?,
+      amount            = ?,
+      wallet_city       = ?,
+      debit_party_id    = ?,
+      debit_rate        = ?,
+      debit_commission  = ?,
+      remarks           = ?,
+      message           = ?,
+      credit_wallet_city= ?,
+      credit_party_id   = ?,
+      credit_rate       = ?,
+      credit_commission = ?
+    WHERE id = ?
+  `).run(
+    transaction_date   || tx.transaction_date,
+    transaction_city   || null,
+    token_details      || null,
+    amt,
+    wallet_city        || null,
+    debit_party_id,
+    dRate, dComm,
+    remarks            || null,
+    message            || null,
+    credit_wallet_city || null,
+    credit_party_id,
+    cRate, cComm,
+    tx.id
+  );
+
+  const updated = db.prepare(`
+    SELECT t.*, da.account_name AS debit_party_name, ca.account_name AS credit_party_name
+    FROM transactions t
+    LEFT JOIN accounts da ON t.debit_party_id  = da.id
+    LEFT JOIN accounts ca ON t.credit_party_id = ca.id
+    WHERE t.id = ?
+  `).get(tx.id);
+
+  audit(req, 'update', 'transactions', tx.id,
+    { amount: tx.amount, debit_party_id: tx.debit_party_id, credit_party_id: tx.credit_party_id,
+      debit_rate: tx.debit_rate, credit_rate: tx.credit_rate },
+    { amount: amt, debit_party_id, credit_party_id,
+      debit_rate: dRate, credit_rate: cRate,
+      debit_party: debitAccount.account_name, credit_party: creditAccount.account_name }
+  );
+
+  res.json(updated);
+});
+
 // PATCH /api/transactions/:id/verify
 // Stage 1 verification: operator verifies the transaction.
 // This creates the ledger entries and moves status to 'Verified'.
