@@ -43,6 +43,14 @@ async function renderTransactions() {
         <input type="text" id="tx-f-city" placeholder="City..." style="width:110px" />
       </div>
       <div class="filter-field">
+        <label>Status</label>
+        <select id="tx-f-status" style="width:170px">
+          <option value="">All</option>
+          <option value="Pending Verification">Pending Verification</option>
+          <option value="Verified">Verified</option>
+        </select>
+      </div>
+      <div class="filter-field">
         <label>From Date</label>
         <input type="date" id="tx-f-from" />
       </div>
@@ -80,13 +88,14 @@ async function loadTransactions(p = 1) {
   if (exportBar) exportBar.style.display = 'none';
 
   const q = API.buildQuery({
-    account: document.getElementById('tx-f-account')?.value || '',
-    debit: document.getElementById('tx-f-debit')?.value || '',
-    credit: document.getElementById('tx-f-credit')?.value || '',
-    amount: document.getElementById('tx-f-amount')?.value || '',
-    city: document.getElementById('tx-f-city')?.value || '',
-    date_from: document.getElementById('tx-f-from')?.value || '',
-    date_to: document.getElementById('tx-f-to')?.value || '',
+    account:   document.getElementById('tx-f-account')?.value || '',
+    debit:     document.getElementById('tx-f-debit')?.value   || '',
+    credit:    document.getElementById('tx-f-credit')?.value  || '',
+    amount:    document.getElementById('tx-f-amount')?.value  || '',
+    city:      document.getElementById('tx-f-city')?.value    || '',
+    status:    document.getElementById('tx-f-status')?.value  || '',
+    date_from: document.getElementById('tx-f-from')?.value    || '',
+    date_to:   document.getElementById('tx-f-to')?.value      || '',
     page: p,
     limit: TX_PAGE_SIZE
   });
@@ -145,6 +154,9 @@ function renderTxTable({ data, total, page, limit }) {
                 <div class="btn-group">
                   <button class="btn btn-outline btn-xs" onclick="viewTransaction(${tx.id})">👁 View</button>
                   <a href="/api/export/transaction/pdf?id=${tx.id}" target="_blank" class="btn btn-outline btn-xs">📄 PDF</a>
+                  ${APP.isOperator() && tx.status === 'Pending Verification'
+                    ? `<button class="btn btn-success btn-xs" onclick="verifyTransaction(${tx.id})">✓ Verify</button>`
+                    : ''}
                 </div>
               </td>
             </tr>
@@ -169,7 +181,7 @@ function renderTxTable({ data, total, page, limit }) {
 }
 
 function clearTxFilters() {
-  ['tx-f-account','tx-f-debit','tx-f-credit','tx-f-amount','tx-f-city','tx-f-from','tx-f-to']
+  ['tx-f-account','tx-f-debit','tx-f-credit','tx-f-amount','tx-f-city','tx-f-status','tx-f-from','tx-f-to']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   loadTransactions(1);
 }
@@ -198,10 +210,15 @@ async function viewTransaction(id) {
           ${txDetailField('Credit Commission', fmtNum(tx.credit_commission))}
           ${txDetailField('Remarks', tx.remarks)}
           ${txDetailField('Message', tx.message)}
+          ${tx.verified_by_name ? txDetailField('Verified By', tx.verified_by_name) : ''}
+          ${tx.verified_at     ? txDetailField('Verified At', tx.verified_at.slice(0,16)) : ''}
         </div>
       `,
       footer: `
         <a href="/api/export/transaction/pdf?id=${id}" target="_blank" class="btn btn-outline">📄 Export PDF</a>
+        ${tx.status === 'Pending Verification' && APP.isOperator()
+          ? `<button class="btn btn-success" onclick="Modal.close(); verifyTransaction(${id})">✓ Verify</button>`
+          : ''}
         <button class="btn btn-primary" onclick="Modal.close()">Close</button>
       `
     });
@@ -399,6 +416,17 @@ async function submitTransaction() {
     errEl.style.display = 'block';
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '✓ Submit Transaction'; }
+  }
+}
+
+async function verifyTransaction(txId) {
+  if (!confirm('Verify this transaction?\n\nThis will post ledger entries for both parties.\nThe transaction will then appear in Trial Balance for final verification.')) return;
+  try {
+    const updated = await API.patch(`/api/transactions/${txId}/verify`, {});
+    toast(`Transaction ${updated.voucher_number} verified — now visible in Trial Balance`, 'success');
+    loadTransactions(txPage);
+  } catch (e) {
+    toast(e.message, 'error');
   }
 }
 

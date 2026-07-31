@@ -118,6 +118,15 @@ function init() {
     CREATE INDEX IF NOT EXISTS idx_transactions_credit ON transactions(credit_party_id);
   `);
 
+  // ── Migrations for existing databases ──────────────────────────────────
+  const txCols = db.prepare('PRAGMA table_info(transactions)').all().map(c => c.name);
+  if (!txCols.includes('verified_by')) {
+    db.exec('ALTER TABLE transactions ADD COLUMN verified_by INTEGER REFERENCES users(id)');
+  }
+  if (!txCols.includes('verified_at')) {
+    db.exec('ALTER TABLE transactions ADD COLUMN verified_at TEXT');
+  }
+
   // Seed default users if none exist
   const count = db.prepare('SELECT COUNT(*) as c FROM users').get();
   if (count.c === 0) {
