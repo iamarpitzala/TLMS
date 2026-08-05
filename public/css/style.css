@@ -532,3 +532,117 @@ tfoot td { background: #f8fafc; font-weight: 700; border-top: 2px solid #e5e7eb;
 }
 .tx-list-table tr:last-child td { border-bottom: none; }
 .tx-list-table tr:hover td { background: #f8fafc; }
+
+/* ── Ledger Report ───────────────────────────────────────────────────── */
+.ledger-toolbar-card { padding: 0.85rem 1.1rem; }
+
+.ledger-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+.ledger-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.ledger-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+/* Override global width:100% inside toolbar */
+.ledger-toolbar input[type="text"],
+.ledger-toolbar input[type="date"],
+.ledger-toolbar select,
+.ledger-subtoolbar input[type="date"] {
+  width: auto !important;
+}
+
+.led-narration-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.85rem;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+}
+.led-narration-toggle input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: #1e3a5f;
+  cursor: pointer;
+}
+
+.led-balance-label { font-size: 0.88rem; color: #6b7280; font-weight: 600; white-space: nowrap; }
+.led-balance-value { font-size: 1.05rem; font-weight: 700; white-space: nowrap; }
+
+.ledger-subtoolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.ledger-tabs {
+  display: flex;
+  gap: 0;
+}
+.led-tab {
+  padding: 0.35rem 1rem;
+  border: none;
+  background: none;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #9ca3af;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.led-tab:hover:not(.active) { color: #374151; }
+.led-tab.active { color: #1e3a5f; border-bottom-color: #1e3a5f; }
+
+/* ── Ledger Report Table ─────────────────────────────────────────────── */
+.ledger-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.ledger-report-table th {
+  background: #1e3a5f;
+  color: #fff;
+  font-weight: 600;
+  padding: 0.6rem 0.9rem;
+  text-align: left;
+  white-space: nowrap;
+}
+.ledger-report-table td {
+  padding: 0.5rem 0.9rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+.ledger-report-table tr:last-child td { border-bottom: none; }
+.ledger-report-table tbody tr:hover td { background: #f8fafc; }
+
+.led-opening-row td {
+  background: #f8fafc;
+  font-style: italic;
+  color: #6b7280;
+}
+.led-locked-row td { background: #f0f9ff !important; }
+
+.led-total-row td {
+  background: #f8fafc;
+  border-top: 2px solid #e5e7eb;
+  padding: 0.6rem 0.9rem;
+}

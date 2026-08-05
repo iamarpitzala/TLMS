@@ -1,5 +1,6 @@
-// ── Ledger page ───────────────────────────────────────────────────────────
-let currentLedgerType = 'debit';
+// ── Ledger Report page ────────────────────────────────────────────────────
+let currentLedgerType = 'all';
+let showNarration = true;
 
 async function renderLedger() {
   const page = document.getElementById('page-ledger');
@@ -7,47 +8,53 @@ async function renderLedger() {
   const monthStart = today.slice(0, 8) + '01';
 
   page.innerHTML = `
-    <div class="page-header">
-      <h2>📖 Ledger</h2>
-    </div>
+    <h2 style="font-size:1.2rem;font-weight:700;color:#1e3a5f;margin-bottom:1rem">Ledger Report</h2>
 
-    <div class="filters-bar">
-      <div class="filter-field">
-        <label class="required">Account</label>
-        <select id="led-account" style="width:200px">
-          <option value="">-- Select Account --</option>
-          ${APP.accountOptions()}
-        </select>
-      </div>
-      <div class="filter-field">
-        <label>From Date</label>
-        <input type="date" id="led-from" value="${monthStart}" />
-      </div>
-      <div class="filter-field">
-        <label>To Date</label>
-        <input type="date" id="led-to" value="${today}" />
-      </div>
-      <button class="btn btn-primary" onclick="loadLedger()">🔍 Load Ledger</button>
-      <button class="btn btn-outline" onclick="clearLedgerFilters()">Clear</button>
-    </div>
-
-    <div class="tabs">
-      <button class="tab-btn active" onclick="switchLedgerTab('debit', this)">Debit Ledger</button>
-      <button class="tab-btn" onclick="switchLedgerTab('credit', this)">Credit Ledger</button>
-      <button class="tab-btn" onclick="switchLedgerTab('all', this)">All Entries</button>
-    </div>
-
-    <div class="card">
-      <div id="ledger-export-bar" style="display:none;margin-bottom:1rem">
-        <div class="btn-group">
-          <button class="btn btn-outline btn-sm" onclick="exportLedger('pdf')">📄 Export PDF</button>
-          <button class="btn btn-outline btn-sm" onclick="exportLedger('excel')">📊 Export Excel</button>
+    <!-- ── Toolbar ─────────────────────────────────────── -->
+    <div class="card ledger-toolbar-card">
+      <div class="ledger-toolbar">
+        <div class="ledger-toolbar-left">
+          <input type="text" id="led-filename" placeholder="Enter export file name" style="width:160px" />
+          <button class="btn btn-outline btn-sm" onclick="exportLedger('pdf')">📄 PDF</button>
+          <button class="btn btn-outline btn-sm" onclick="exportLedger('excel')">📊 CSV</button>
+          <button class="btn btn-entry-reset" onclick="resetLedger()" title="Reset">↺</button>
+          <input type="date" id="led-from" value="${monthStart}" style="width:140px" />
+          <select id="led-account" style="width:190px">
+            <option value="">-- Select Account --</option>
+            ${APP.accountOptions()}
+          </select>
+          <label class="led-narration-toggle">
+            <input type="checkbox" id="led-narration" checked onchange="toggleNarration(this)" />
+            <span>Narration</span>
+          </label>
+        </div>
+        <div class="ledger-toolbar-right">
+          <span class="led-balance-label">Total Balance :</span>
+          <span id="led-total-balance" class="led-balance-value">—</span>
         </div>
       </div>
+
+      <!-- Sub-toolbar: to-date + tabs -->
+      <div class="ledger-subtoolbar">
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <label style="font-size:0.8rem;color:#6b7280">To:</label>
+          <input type="date" id="led-to" value="${today}" style="width:140px" />
+          <button class="btn btn-primary btn-sm" onclick="loadLedger()">Load</button>
+        </div>
+        <div class="ledger-tabs">
+          <button class="led-tab active" onclick="switchLedgerTab('all', this)">All Entries</button>
+          <button class="led-tab" onclick="switchLedgerTab('debit', this)">Debit</button>
+          <button class="led-tab" onclick="switchLedgerTab('credit', this)">Credit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Table ───────────────────────────────────────── -->
+    <div class="card" style="padding:0">
       <div id="ledger-table-wrap">
         <div class="empty-state">
           <div class="empty-icon">📖</div>
-          <p>Select an account and click "Load Ledger" to view entries.</p>
+          <p>Select an account and click "Load" to view the ledger.</p>
         </div>
       </div>
     </div>
@@ -56,43 +63,50 @@ async function renderLedger() {
 
 function switchLedgerTab(type, btn) {
   currentLedgerType = type;
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.led-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   loadLedger();
 }
 
-function clearLedgerFilters() {
-  document.getElementById('led-account').value = '';
-  document.getElementById('led-from').value = '';
-  document.getElementById('led-to').value = '';
+function toggleNarration(cb) {
+  showNarration = cb.checked;
+  // Re-render without re-fetching
+  const table = document.getElementById('ledger-table');
+  if (!table) return;
+  table.querySelectorAll('.led-narration-col').forEach(el => {
+    el.style.display = showNarration ? '' : 'none';
+  });
+}
+
+function resetLedger() {
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = today.slice(0, 8) + '01';
+  const accEl = document.getElementById('led-account'); if (accEl) accEl.value = '';
+  const frEl  = document.getElementById('led-from');    if (frEl)  frEl.value  = monthStart;
+  const toEl  = document.getElementById('led-to');      if (toEl)  toEl.value  = today;
+  const fnEl  = document.getElementById('led-filename');if (fnEl)  fnEl.value  = '';
+  document.getElementById('led-total-balance').textContent = '—';
   document.getElementById('ledger-table-wrap').innerHTML = `
-    <div class="empty-state"><div class="empty-icon">📖</div><p>Select an account and click "Load Ledger".</p></div>
-  `;
-  document.getElementById('ledger-export-bar').style.display = 'none';
+    <div class="empty-state"><div class="empty-icon">📖</div><p>Select an account and click "Load".</p></div>`;
 }
 
 async function loadLedger() {
   const accountId = document.getElementById('led-account')?.value;
-  if (!accountId) {
-    toast('Please select an account first.', 'error');
-    return;
-  }
+  if (!accountId) { toast('Please select an account first.', 'error'); return; }
 
   const wrap = document.getElementById('ledger-table-wrap');
   wrap.innerHTML = `<div class="loading"><span class="spinner"></span> Loading...</div>`;
-  document.getElementById('ledger-export-bar').style.display = 'none';
 
   const q = API.buildQuery({
     account_id: accountId,
-    type: currentLedgerType === 'all' ? '' : currentLedgerType,
-    date_from: document.getElementById('led-from')?.value || '',
-    date_to: document.getElementById('led-to')?.value || ''
+    type:       currentLedgerType === 'all' ? '' : currentLedgerType,
+    date_from:  document.getElementById('led-from')?.value || '',
+    date_to:    document.getElementById('led-to')?.value   || ''
   });
 
   try {
     const result = await API.get('/api/ledger' + q);
     renderLedgerTable(result.data, result.totals);
-    document.getElementById('ledger-export-bar').style.display = 'block';
   } catch (e) {
     wrap.innerHTML = `<div class="alert alert-error">${escHtml(e.message)}</div>`;
   }
@@ -100,88 +114,110 @@ async function loadLedger() {
 
 function renderLedgerTable(rows, totals) {
   const wrap = document.getElementById('ledger-table-wrap');
+  const balEl = document.getElementById('led-total-balance');
 
   if (rows.length === 0) {
-    wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">📖</div><p>No ledger entries found for this account in the selected period.</p></div>`;
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">📖</div><p>No entries found for this account in the selected period.</p></div>`;
+    balEl.textContent = '—';
+    balEl.style.color = '#374151';
     return;
   }
 
+  // Get account opening balance from APP.accounts
+  const accountId = parseInt(document.getElementById('led-account').value);
+  const acc = APP.accounts.find(a => a.id === accountId);
+  const opening = acc ? (acc.opening_amount || 0) : 0;
+
+  // Compute running balance and separate cr/dr totals
+  let runningBal = opening;
+  let totalCr = 0, totalDr = 0, totalBrok = 0;
+
+  const processedRows = rows.map(r => {
+    const isDebit  = r.entry_type === 'debit'  || r.entry_type === 'commission_debit';
+    const isCredit = r.entry_type === 'credit' || r.entry_type === 'commission_credit';
+    const amt = parseFloat(r.amount) || 0;
+    const brok = parseFloat(r.brokerage) || 0;
+
+    if (isCredit) { runningBal += amt; totalCr += amt; }
+    else          { runningBal -= amt; totalDr += amt; }
+    totalBrok += brok;
+
+    return { ...r, isDebit, isCredit, runningBal: runningBal };
+  });
+
+  const finalBal = runningBal;
+  const balSign  = finalBal >= 0 ? 'Cr' : 'Dr';
+  const balColor = finalBal >= 0 ? '#2e7d32' : '#c62828';
+  balEl.textContent = `${fmtNum(Math.abs(finalBal))} ${balSign}`;
+  balEl.style.color = balColor;
+
+  const narDisplay = showNarration ? '' : 'none';
+
   wrap.innerHTML = `
-    <div class="table-wrap">
-      <table id="ledger-table">
+    <div style="overflow-x:auto">
+      <table id="ledger-table" class="ledger-report-table">
         <thead>
           <tr>
-            <th>ID</th>
+            <th>Tran Id</th>
             <th>Date</th>
-            <th>Type</th>
-            <th>Particulars</th>
-            <th>Message</th>
-            <th>Brokerage</th>
-            <th>Amount</th>
-            <th>Verified</th>
-            <th>Verified By</th>
+            <th>Particular</th>
+            <th class="led-narration-col" style="display:${narDisplay}">Narration</th>
+            <th style="text-align:right">Brokerage</th>
+            <th style="text-align:right">Cr Amount</th>
+            <th style="text-align:right">Dr Amount</th>
+            <th style="text-align:right">Balance</th>
           </tr>
         </thead>
         <tbody>
-          ${rows.map(r => renderLedgerRow(r)).join('')}
+          <!-- Opening balance row -->
+          <tr class="led-opening-row">
+            <td></td>
+            <td></td>
+            <td><em>Opening Balance</em></td>
+            <td class="led-narration-col" style="display:${narDisplay}"><em>Opening Balance</em></td>
+            <td></td>
+            <td style="text-align:right;color:#2e7d32">${opening >= 0 ? fmtNum(opening) : ''}</td>
+            <td style="text-align:right;color:#c62828">${opening < 0  ? fmtNum(Math.abs(opening)) : ''}</td>
+            <td style="text-align:right;font-weight:600">
+              ${fmtNum(Math.abs(opening))} ${opening >= 0 ? 'Cr' : 'Dr'}
+            </td>
+          </tr>
+          ${processedRows.map(r => {
+            const balStr = `${fmtNum(Math.abs(r.runningBal))} ${r.runningBal >= 0 ? 'Cr' : 'Dr'}`;
+            const balC   = r.runningBal >= 0 ? '#2e7d32' : '#c62828';
+            return `
+              <tr id="ledger-row-${r.id}" class="${r.is_locked ? 'led-locked-row' : ''}">
+                <td style="color:#1e3a5f;font-size:0.8rem">
+                  <a href="#" onclick="return false" style="color:#1e3a5f;text-decoration:none">${r.transaction_id || r.id}</a>
+                </td>
+                <td style="white-space:nowrap">${fmtDate(r.entry_date)}</td>
+                <td>${escHtml(r.particulars) || 'Transaction'}</td>
+                <td class="led-narration-col" style="display:${narDisplay};color:#6b7280;font-size:0.82rem">
+                  ${escHtml(r.message) || ''}
+                </td>
+                <td style="text-align:right;color:#6b7280">${r.brokerage ? fmtNum(r.brokerage) : ''}</td>
+                <td style="text-align:right;color:#2e7d32;font-weight:600">${r.isCredit ? fmtNum(r.amount) : ''}</td>
+                <td style="text-align:right;color:#c62828;font-weight:600">${r.isDebit  ? fmtNum(r.amount) : ''}</td>
+                <td style="text-align:right;font-weight:600;color:${balC}">${balStr}</td>
+              </tr>
+            `;
+          }).join('')}
         </tbody>
         <tfoot>
-          <tr>
-            <td colspan="5" style="text-align:right;font-weight:700">TOTAL</td>
-            <td>${fmtNum(totals.brokerage)}</td>
-            <td>${fmtNum(totals.amount)}</td>
-            <td colspan="2"></td>
+          <tr class="led-total-row">
+            <td colspan="3" style="text-align:right;font-weight:700">Total :</td>
+            <td class="led-narration-col" style="display:${narDisplay};text-align:right;font-weight:700;color:#6b7280">
+              ${totalBrok ? fmtNum(totalBrok) : ''}
+            </td>
+            <td style="text-align:right;font-weight:700;color:#6b7280">${totalBrok ? fmtNum(totalBrok) : ''}</td>
+            <td style="text-align:right;font-weight:700;color:#2e7d32">${fmtNum(totalCr)}</td>
+            <td style="text-align:right;font-weight:700;color:#c62828">${fmtNum(totalDr)}</td>
+            <td style="text-align:right;font-weight:700;color:${balColor}">${fmtNum(Math.abs(finalBal))} ${balSign}</td>
           </tr>
         </tfoot>
       </table>
     </div>
-  `;
-}
-
-function renderLedgerRow(r) {
-  const isDebit  = r.entry_type === 'debit'  || r.entry_type === 'commission_debit';
-  const isCredit = r.entry_type === 'credit' || r.entry_type === 'commission_credit';
-
-  const rowBg = r.is_locked
-    ? '#f0f9ff'
-    : isDebit  ? '#fff5f5'
-    : isCredit ? '#f0fdf4'
-    : '';
-
-  const amtStyle = isDebit
-    ? 'color:#c62828;font-weight:700'
-    : isCredit
-    ? 'color:#2e7d32;font-weight:700'
-    : 'font-weight:700';
-
-  const typeBadge = {
-    debit:             '<span class="badge badge-debit">Debit</span>',
-    credit:            '<span class="badge badge-credit">Credit</span>',
-    commission_debit:  '<span class="badge badge-comm-debit">Comm.D</span>',
-    commission_credit: '<span class="badge badge-comm-credit">Comm.C</span>'
-  }[r.entry_type] || r.entry_type;
-
-  const verifiedCell = r.is_verified
-    ? `<span class="badge badge-verified">✓ Verified</span>
-       <div class="verified-info">at ${r.verified_at ? r.verified_at.slice(0,16) : ''}</div>`
-    : `<span class="badge badge-pending">Pending</span>`;
-
-  const verifiedByCell = r.verified_by_name
-    ? `<span>${escHtml(r.verified_by_name)}</span>`
-    : '-';
-
-  return `
-    <tr id="ledger-row-${r.id}" style="background:${rowBg}">
-      <td>${r.id}</td>
-      <td>${fmtDate(r.entry_date)}</td>
-      <td>${typeBadge}</td>
-      <td>${escHtml(r.particulars) || '-'}</td>
-      <td>${escHtml(r.message) || '-'}</td>
-      <td>${fmtNum(r.brokerage)}</td>
-      <td style="${amtStyle}">${fmtNum(r.amount)}</td>
-      <td>${verifiedCell}</td>
-      <td>${verifiedByCell}</td>
-    </tr>
+    <div style="padding:0.5rem 1rem;font-size:0.8rem;color:#9ca3af">${rows.length} entries</div>
   `;
 }
 
@@ -191,11 +227,9 @@ function exportLedger(format) {
 
   const q = API.buildQuery({
     account_id: accountId,
-    type: currentLedgerType === 'all' ? '' : currentLedgerType,
+    type:      currentLedgerType === 'all' ? '' : currentLedgerType,
     date_from: document.getElementById('led-from')?.value || '',
-    date_to: document.getElementById('led-to')?.value || ''
+    date_to:   document.getElementById('led-to')?.value   || ''
   });
-
-  const url = `/api/export/ledger/${format}${q}`;
-  window.open(url, '_blank');
+  window.open(`/api/export/ledger/${format}${q}`, '_blank');
 }
