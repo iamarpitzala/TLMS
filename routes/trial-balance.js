@@ -4,49 +4,58 @@ const { requireLogin, requireOperator, requireAdmin } = require('../middleware/a
 const audit = require('../middleware/audit');
 const router = express.Router();
 
+// Compute trial balance in 3 fixed queries regardless of account count
 async function computeTrialBalance(date_from, date_to) {
-  const { rows: accounts } = await pool.query(
-    `SELECT * FROM accounts WHERE is_active = 1 ORDER BY account_name`
-  );
+  const params = [];
+  const df = date_from ? (params.push(date_from), `AND le.entry_date >= $${params.length}`) : '';
+  const dt = date_to   ? (params.push(date_to),   `AND le.entry_date <= $${params.length}`) : '';
 
-  const results = await Promise.all(accounts.map(async acc => {
-    const opening = acc.opening_amount || 0;
-    const params  = [acc.id];
-    const dfCond  = date_from ? `AND le.entry_date >= $2` : '';
-    const dtCond  = date_to   ? `AND le.entry_date <= $${date_from ? 3 : 2}` : '';
-    if (date_from) params.push(date_from);
-    if (date_to)   params.push(date_to);
+  // Query 1: all accounts
+  // Query 2: aggregated debit/credit sums per account in one pass
+  // Query 3: all ledger entries in one pass (with verified_by join)
+  const [accsRes, sumsRes, entriesRes] = await Promise.all([
+    pool.query(`SELECT * FROM accounts WHERE is_active=1 ORDER BY account_name`),
 
-    const [debitRes, creditRes, entriesRes] = await Promise.all([
-      pool.query(`
-        SELECT COALESCE(SUM(le.amount),0) AS total FROM ledger_entries le
-        WHERE le.account_id=$1 AND le.entry_type = ANY(${ '\'{"debit","commission_debit"}\'' })
-        ${dfCond} ${dtCond}
-      `.replace(/\$\{.*?\}/g, "'{\"debit\",\"commission_debit\"}'"), params),
-      pool.query(`
-        SELECT COALESCE(SUM(le.amount),0) AS total FROM ledger_entries le
-        WHERE le.account_id=$1 AND le.entry_type = ANY(${ '\'{"credit","commission_credit"}\'' })
-        ${dfCond} ${dtCond}
-      `.replace(/\$\{.*?\}/g, "'{\"credit\",\"commission_credit\"}'"), params),
-      pool.query(`
-        SELECT le.*, u.username AS verified_by_name
-        FROM ledger_entries le
-        LEFT JOIN users u ON le.verified_by = u.id
-        WHERE le.account_id=$1 ${dfCond} ${dtCond}
-        ORDER BY le.entry_date ASC, le.id ASC
-      `, params)
-    ]);
+    pool.query(`
+      SELECT
+        le.account_id,
+        SUM(CASE WHEN le.entry_type IN ('debit','commission_debit')   THEN le.amount ELSE 0 END) AS debit_total,
+        SUM(CASE WHEN le.entry_type IN ('credit','commission_credit') THEN le.amount ELSE 0 END) AS credit_total
+      FROM ledger_entries le
+      WHERE 1=1 ${df} ${dt}
+      GROUP BY le.account_id
+    `, params),
 
-    const debitTotal  = parseFloat(debitRes.rows[0].total)  || 0;
-    const creditTotal = parseFloat(creditRes.rows[0].total) || 0;
-    const entries     = entriesRes.rows;
+    pool.query(`
+      SELECT le.*, u.username AS verified_by_name
+      FROM ledger_entries le
+      LEFT JOIN users u ON le.verified_by = u.id
+      WHERE 1=1 ${df} ${dt}
+      ORDER BY le.account_id, le.entry_date ASC, le.id ASC
+    `, params)
+  ]);
+
+  // Index results by account_id for O(1) lookup
+  const sumsMap   = {};
+  const entriesMap = {};
+  sumsRes.rows.forEach(r => { sumsMap[r.account_id] = r; });
+  entriesRes.rows.forEach(r => {
+    if (!entriesMap[r.account_id]) entriesMap[r.account_id] = [];
+    entriesMap[r.account_id].push(r);
+  });
+
+  return accsRes.rows.map(acc => {
+    const opening     = acc.opening_amount || 0;
+    const sums        = sumsMap[acc.id] || { debit_total: 0, credit_total: 0 };
+    const debitTotal  = parseFloat(sums.debit_total)  || 0;
+    const creditTotal = parseFloat(sums.credit_total) || 0;
+    const entries     = entriesMap[acc.id] || [];
 
     const openingCredit = opening >= 0 ? opening : 0;
     const openingDebit  = opening < 0  ? Math.abs(opening) : 0;
     const closingNet    = opening + creditTotal - debitTotal;
     const closingCredit = closingNet >= 0 ? closingNet : 0;
     const closingDebit  = closingNet < 0  ? Math.abs(closingNet) : 0;
-
     const verifiedEntries = entries.filter(e => e.is_verified).length;
 
     return {
@@ -61,9 +70,7 @@ async function computeTrialBalance(date_from, date_to) {
       verified_entries: verifiedEntries,
       entries
     };
-  }));
-
-  return results;
+  });
 }
 
 // GET /api/trial-balance

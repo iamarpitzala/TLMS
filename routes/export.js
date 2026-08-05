@@ -29,20 +29,32 @@ async function getLedgerData(account_id, type, date_from, date_to) {
 
 // ─── Helper: trial balance data ───────────────────────────────────────────
 async function getTrialBalanceData(date_from, date_to) {
-  const { rows: accounts } = await pool.query(
-    `SELECT * FROM accounts WHERE is_active=1 ORDER BY account_name`
-  );
-  return Promise.all(accounts.map(async acc => {
-    const opening = acc.opening_amount || 0;
-    const params  = [acc.id];
-    const df = date_from ? (params.push(date_from), `AND entry_date >= $${params.length}`) : '';
-    const dt = date_to   ? (params.push(date_to),   `AND entry_date <= $${params.length}`) : '';
+  const params = [];
+  const df = date_from ? (params.push(date_from), `AND le.entry_date >= $${params.length}`) : '';
+  const dt = date_to   ? (params.push(date_to),   `AND le.entry_date <= $${params.length}`) : '';
 
-    const [dr, cr] = await Promise.all([
-      pool.query(`SELECT COALESCE(SUM(amount),0) AS t FROM ledger_entries WHERE account_id=$1 AND entry_type = ANY('{debit,commission_debit}') ${df} ${dt}`, params),
-      pool.query(`SELECT COALESCE(SUM(amount),0) AS t FROM ledger_entries WHERE account_id=$1 AND entry_type = ANY('{credit,commission_credit}') ${df} ${dt}`, params)
-    ]);
-    const net = opening + parseFloat(cr.rows[0].t) - parseFloat(dr.rows[0].t);
+  const [accsRes, sumsRes] = await Promise.all([
+    pool.query(`SELECT * FROM accounts WHERE is_active=1 ORDER BY account_name`),
+    pool.query(`
+      SELECT
+        le.account_id,
+        SUM(CASE WHEN le.entry_type IN ('debit','commission_debit')   THEN le.amount ELSE 0 END) AS debit_total,
+        SUM(CASE WHEN le.entry_type IN ('credit','commission_credit') THEN le.amount ELSE 0 END) AS credit_total
+      FROM ledger_entries le
+      WHERE 1=1 ${df} ${dt}
+      GROUP BY le.account_id
+    `, params)
+  ]);
+
+  const sumsMap = {};
+  sumsRes.rows.forEach(r => { sumsMap[r.account_id] = r; });
+
+  return accsRes.rows.map(acc => {
+    const opening    = acc.opening_amount || 0;
+    const sums       = sumsMap[acc.id] || { debit_total: 0, credit_total: 0 };
+    const debitTotal  = parseFloat(sums.debit_total)  || 0;
+    const creditTotal = parseFloat(sums.credit_total) || 0;
+    const net = opening + creditTotal - debitTotal;
     return {
       account_name:   acc.account_name,
       opening_credit: opening >= 0 ? opening : 0,
@@ -50,7 +62,7 @@ async function getTrialBalanceData(date_from, date_to) {
       closing_credit: net >= 0 ? net : 0,
       closing_debit:  net < 0  ? Math.abs(net) : 0
     };
-  }));
+  });
 }
 
 // ─── Helper: transactions data ────────────────────────────────────────────

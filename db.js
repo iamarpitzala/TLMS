@@ -9,7 +9,12 @@ if (!process.env.DATABASE_URL) {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 15000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000
 });
 
 // ─── IST timestamp helpers (used by JS code, not DB defaults) ─────────────
