@@ -78,13 +78,13 @@ async function getTransactionsData(query) {
     WHERE 1=1
   `;
   const params = [];
-  const p = () => `$${params.length}`;
-  if (account)   { params.push(account);       sql += ` AND (t.debit_party_id=${p()} OR t.credit_party_id=${p()})`; params.push(account); }
-  if (debit)     { params.push(debit);         sql += ` AND t.debit_party_id=${p()}`; }
-  if (credit)    { params.push(credit);        sql += ` AND t.credit_party_id=${p()}`; }
-  if (status)    { params.push(status);        sql += ` AND t.status=${p()}`; }
-  if (date_from) { params.push(date_from);     sql += ` AND t.transaction_date>=${p()}`; }
-  if (date_to)   { params.push(date_to);       sql += ` AND t.transaction_date<=${p()}`; }
+  const add = (val) => { params.push(val); return `$${params.length}`; };
+  if (account)   { const p1 = add(account); const p2 = add(account); sql += ` AND (t.debit_party_id=${p1} OR t.credit_party_id=${p2})`; }
+  if (debit)     { sql += ` AND t.debit_party_id=${add(debit)}`; }
+  if (credit)    { sql += ` AND t.credit_party_id=${add(credit)}`; }
+  if (status)    { sql += ` AND t.status=${add(status)}`; }
+  if (date_from) { sql += ` AND t.transaction_date>=${add(date_from)}`; }
+  if (date_to)   { sql += ` AND t.transaction_date<=${add(date_to)}`; }
   sql += ` ORDER BY t.transaction_date DESC, t.id DESC`;
   const { rows } = await pool.query(sql, params);
   return rows;

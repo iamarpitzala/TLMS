@@ -22,32 +22,31 @@ router.get('/', requireLogin, async (req, res) => {
       WHERE 1=1
     `;
     const params = [];
-    const p = () => `$${params.length}`;
+    const add = (val) => { params.push(val); return `$${params.length}`; };
 
-    if (account)   { params.push(account);   sql += ` AND (t.debit_party_id = ${p()} OR t.credit_party_id = ${p()})`; params.push(account); }
-    if (debit)     { params.push(debit);     sql += ` AND t.debit_party_id = ${p()}`; }
-    if (credit)    { params.push(credit);    sql += ` AND t.credit_party_id = ${p()}`; }
-    if (amount)    { params.push(parseFloat(amount)); sql += ` AND t.amount = ${p()}`; }
-    if (status)    { params.push(status);    sql += ` AND t.status = ${p()}`; }
+    if (account)   { const p1 = add(account); const p2 = add(account); sql += ` AND (t.debit_party_id = ${p1} OR t.credit_party_id = ${p2})`; }
+    if (debit)     { sql += ` AND t.debit_party_id = ${add(debit)}`; }
+    if (credit)    { sql += ` AND t.credit_party_id = ${add(credit)}`; }
+    if (amount)    { sql += ` AND t.amount = ${add(parseFloat(amount))}`; }
+    if (status)    { sql += ` AND t.status = ${add(status)}`; }
     if (city) {
       const like = `%${city}%`;
-      params.push(like);
-      sql += ` AND (t.transaction_city ILIKE ${p()} OR t.wallet_city ILIKE ${p()} OR t.credit_wallet_city ILIKE ${p()})`;
-      params.push(like); params.push(like);
+      sql += ` AND (t.transaction_city ILIKE ${add(like)} OR t.wallet_city ILIKE ${add(like)} OR t.credit_wallet_city ILIKE ${add(like)})`;
     }
-    if (date_from) { params.push(date_from); sql += ` AND t.transaction_date >= ${p()}`; }
-    if (date_to)   { params.push(date_to);   sql += ` AND t.transaction_date <= ${p()}`; }
+    if (date_from) { sql += ` AND t.transaction_date >= ${add(date_from)}`; }
+    if (date_to)   { sql += ` AND t.transaction_date <= ${add(date_to)}`; }
 
     sql += ` ORDER BY t.transaction_date DESC, t.id DESC`;
 
-    const countSql = `SELECT COUNT(*) AS total FROM transactions t WHERE 1=1` +
-      sql.split('WHERE 1=1')[1].split('ORDER BY')[0];
-    const totalRes = await pool.query(countSql, params);
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const whereClause = sql.split('WHERE 1=1')[1].split('ORDER BY')[0];
+    const countSql = `SELECT COUNT(*) AS total FROM transactions t WHERE 1=1` + whereClause;
+    const countParams = [...params];
+    const totalRes = await pool.query(countSql, countParams);
     const total = parseInt(totalRes.rows[0].total);
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    params.push(parseInt(limit)); sql += ` LIMIT ${p()}`;
-    params.push(offset);          sql += ` OFFSET ${p()}`;
+    params.push(parseInt(limit)); sql += ` LIMIT $${params.length}`;
+    params.push(offset);          sql += ` OFFSET $${params.length}`;
 
     const { rows } = await pool.query(sql, params);
     res.json({ data: rows, total, page: parseInt(page), limit: parseInt(limit) });

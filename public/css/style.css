@@ -373,3 +373,162 @@ tfoot td { background: #f8fafc; font-weight: 700; border-top: 2px solid #e5e7eb;
   font-variant-numeric: tabular-nums;
 }
 .tb-account-row:hover td { background: #f0f7ff; }
+
+/* ── Inline transaction entry row ────────────────────────────────────── */
+.tx-entry-card { padding: 0.75rem 1rem; }
+
+.tx-entry-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.tx-entry-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 90px;
+  flex: 1;
+}
+.tx-entry-field--wide { flex: 1.8; min-width: 130px; }
+.tx-entry-field--sm   { flex: 0.7; min-width: 70px; }
+
+.tx-entry-field label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.tx-entry-field label .req { color: #ef4444; }
+
+.tx-entry-field input,
+.tx-entry-field select {
+  padding: 0.4rem 0.55rem;
+  font-size: 0.85rem;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  background: #fff;
+  width: 100%;
+}
+.tx-entry-field input:focus,
+.tx-entry-field select:focus {
+  outline: none;
+  border-color: #4fc3f7;
+  box-shadow: 0 0 0 2px rgba(79,195,247,0.15);
+}
+
+.tx-comm-readonly {
+  background: #f8fafc !important;
+  color: #6b7280;
+  cursor: default;
+}
+
+.tx-entry-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-end;
+  padding-bottom: 1px;
+}
+
+.btn-entry-submit {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: #1e3a5f;
+  color: #fff;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.btn-entry-submit:hover { background: #16213e; }
+.btn-entry-submit:disabled { background: #9ca3af; cursor: not-allowed; }
+
+.btn-entry-reset {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 1.5px solid #d1d5db;
+  background: #fff;
+  color: #6b7280;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.btn-entry-reset:hover { background: #f3f4f6; color: #374151; }
+
+/* ── Transactions toolbar + tabs ─────────────────────────────────────── */
+.tx-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.tx-toolbar-left  {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.tx-toolbar-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+
+/* Prevent global width:100% from blowing up toolbar inputs */
+.tx-toolbar input[type="text"],
+.tx-toolbar input[type="date"],
+.tx-toolbar select {
+  width: auto !important;
+}
+
+.tx-status-tabs {
+  display: flex;
+  gap: 0;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 0.5rem;
+  margin-top: 0.25rem;
+}
+.tx-tab {
+  padding: 0.4rem 1.1rem;
+  border: none;
+  background: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #9ca3af;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.2s;
+}
+.tx-tab:hover:not(.active) { color: #374151; }
+.tx-tab.active { color: #1e3a5f; border-bottom-color: #1e3a5f; }
+
+/* ── Transactions list table ─────────────────────────────────────────── */
+.tx-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.tx-list-table th {
+  background: #f8fafc;
+  color: #374151;
+  font-weight: 700;
+  padding: 0.6rem 0.9rem;
+  text-align: left;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+}
+.tx-list-table td {
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+.tx-list-table tr:last-child td { border-bottom: none; }
+.tx-list-table tr:hover td { background: #f8fafc; }
