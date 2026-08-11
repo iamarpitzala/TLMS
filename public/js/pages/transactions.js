@@ -41,8 +41,8 @@ async function renderTransactions() {
           <input type="text" id="te-debit-comm" value="0.000" readonly class="tx-comm-readonly" />
         </div>
         <div class="tx-entry-field">
-          <label>Amount <span class="req">*</span></label>
-          <input type="number" id="te-amount" placeholder="0.00" min="0" step="0.01" />
+          <label>Amount <span class="req">*</span> <span style="font-weight:400;color:#9ca3af;font-size:0.72rem">(in '000s)</span></label>
+          <input type="number" id="te-amount" placeholder="e.g. 100 = 1,00,000" min="0" step="0.001" />
         </div>
         <div class="tx-entry-field tx-entry-field--wide">
           <label>Credit Party <span class="req">*</span></label>
@@ -133,8 +133,9 @@ function updateInlineComm() {
   const cRate = parseFloat(document.getElementById('te-credit-rate')?.value) || 0;
   const dEl = document.getElementById('te-debit-comm');
   const cEl = document.getElementById('te-credit-comm');
-  if (dEl) dEl.value = (amt * dRate / 100).toFixed(3);
-  if (cEl) cEl.value = (amt * cRate / 100).toFixed(3);
+  // Display commission in full rupee value (×1000) so the operator sees the real commission amount
+  if (dEl) dEl.value = ((amt * dRate / 100) * 1000).toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  if (cEl) cEl.value = ((amt * cRate / 100) * 1000).toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 }
 
 function resetInlineForm() {
@@ -263,9 +264,9 @@ function renderTxTable({ data, total, page, limit }) {
               <td style="color:#6b7280;font-size:0.82rem">${escHtml(tx.token_details) || '-'}</td>
               <td>${escHtml(tx.debit_party_name) || '-'}</td>
               <td>${escHtml(tx.credit_party_name) || '-'}</td>
-              <td style="text-align:right;font-weight:700">${fmtNum(tx.amount)}</td>
-              <td style="text-align:right;color:#c62828">${fmtNum(tx.debit_commission)}</td>
-              <td style="text-align:right;color:#2e7d32">${fmtNum(tx.credit_commission)}</td>
+              <td style="text-align:right;font-weight:700">${fmtAmt(tx.amount)}</td>
+              <td style="text-align:right;color:#c62828">${fmtAmt(tx.debit_commission)}</td>
+              <td style="text-align:right;color:#2e7d32">${fmtAmt(tx.credit_commission)}</td>
               <td>
                 <span class="badge ${tx.status === 'Pending Verification' ? 'badge-pending' : 'badge-verified'}">
                   ${tx.status === 'Pending Verification' ? 'Pending' : 'Verified'}
@@ -322,15 +323,15 @@ async function viewTransaction(id) {
           ${txDetailField('Status', `<span class="badge ${tx.status === 'Pending Verification' ? 'badge-pending' : 'badge-verified'}">${escHtml(tx.status)}</span>`)}
           ${txDetailField('Transaction City', tx.transaction_city)}
           ${txDetailField('Token Details', tx.token_details)}
-          ${txDetailField('Amount', fmtNum(tx.amount))}
+          ${txDetailField('Amount', fmtAmt(tx.amount))}
           ${txDetailField('Wallet City', tx.wallet_city)}
           ${txDetailField('Debit Party', tx.debit_party_name)}
           ${txDetailField('Debit Rate', (tx.debit_rate || 0) + '%')}
-          ${txDetailField('Debit Commission', fmtNum(tx.debit_commission))}
+          ${txDetailField('Debit Commission', fmtAmt(tx.debit_commission))}
           ${txDetailField('Credit Party', tx.credit_party_name)}
           ${txDetailField('Credit Wallet City', tx.credit_wallet_city)}
           ${txDetailField('Credit Rate', (tx.credit_rate || 0) + '%')}
-          ${txDetailField('Credit Commission', fmtNum(tx.credit_commission))}
+          ${txDetailField('Credit Commission', fmtAmt(tx.credit_commission))}
           ${txDetailField('Remarks', tx.remarks)}
           ${txDetailField('Message', tx.message)}
           ${tx.verified_by_name ? txDetailField('Verified By', tx.verified_by_name) : ''}
@@ -431,7 +432,7 @@ function buildTransactionForm(tx = null) {
         <div class="field-group"><label>Date</label><input type="date" id="tx-date" value="${v('transaction_date', today)}" /></div>
         <div class="field-group"><label>City</label><input type="text" id="tx-city" value="${escHtml(v('transaction_city'))}" placeholder="City" /></div>
         <div class="field-group"><label>Token</label><input type="text" id="tx-token" value="${escHtml(v('token_details'))}" placeholder="Token / ref" /></div>
-        <div class="field-group"><label class="required">Amount</label><input type="number" id="tx-amount" value="${v('amount','')}" placeholder="0.00" step="0.01" min="0" /></div>
+        <div class="field-group"><label class="required">Amount <span style="font-weight:400;color:#9ca3af;font-size:0.72rem">(in '000s)</span></label><input type="number" id="tx-amount" value="${v('amount','')}" placeholder="e.g. 100 = 1,00,000" step="0.001" min="0" /></div>
         <div class="field-group"><label>Wallet City</label><input type="text" id="tx-wallet-city" value="${escHtml(v('wallet_city'))}" placeholder="Wallet city" /></div>
         <div class="field-group"><label>Remarks</label><input type="text" id="tx-remarks" value="${escHtml(v('remarks'))}" placeholder="Remarks..." /></div>
       </div>
@@ -459,8 +460,8 @@ function updateCommissionDisplays() {
   const cRate  = parseFloat(document.getElementById('tx-credit-rate')?.value) || 0;
   const dEl = document.getElementById('debit-comm-display');
   const cEl = document.getElementById('credit-comm-display');
-  if (dEl) { dEl.style.display = dRate > 0 ? 'inline-block' : 'none'; dEl.textContent = `Commission: ${(amount*dRate/100).toFixed(2)}`; }
-  if (cEl) { cEl.style.display = cRate > 0 ? 'inline-block' : 'none'; cEl.textContent = `Commission: ${(amount*cRate/100).toFixed(2)}`; }
+  if (dEl) { dEl.style.display = dRate > 0 ? 'inline-block' : 'none'; dEl.textContent = `Commission: ${((amount*dRate/100)*1000).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`; }
+  if (cEl) { cEl.style.display = cRate > 0 ? 'inline-block' : 'none'; cEl.textContent = `Commission: ${((amount*cRate/100)*1000).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`; }
 }
 
 function exportTransactions(format) {

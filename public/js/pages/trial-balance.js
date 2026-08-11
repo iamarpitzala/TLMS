@@ -140,10 +140,10 @@ function renderTrialBalanceTable(rows, wrap) {
                   </div>
                 ` : ''}
               </td>
-              <td class="tb-num">${fmtNum(r.opening_credit)}</td>
-              <td class="tb-num">${fmtNum(r.opening_debit)}</td>
-              <td class="tb-num">${fmtNum(r.closing_credit)}</td>
-              <td class="tb-num">${fmtNum(r.closing_debit)}</td>
+              <td class="tb-num">${fmtAmt(r.opening_credit)}</td>
+              <td class="tb-num">${fmtAmt(r.opening_debit)}</td>
+              <td class="tb-num">${fmtAmt(r.closing_credit)}</td>
+              <td class="tb-num">${fmtAmt(r.closing_debit)}</td>
               <td>
                 ${r.is_verified
                   ? '<span class="badge badge-verified">✓ Verified</span>'
@@ -164,10 +164,10 @@ function renderTrialBalanceTable(rows, wrap) {
         <tfoot>
           <tr>
             <td><strong>TOTAL</strong></td>
-            <td class="tb-num"><strong>${fmtNum(totOC)}</strong></td>
-            <td class="tb-num"><strong>${fmtNum(totOD)}</strong></td>
-            <td class="tb-num"><strong>${fmtNum(totCC)}</strong></td>
-            <td class="tb-num"><strong>${fmtNum(totCD)}</strong></td>
+            <td class="tb-num"><strong>${fmtAmt(totOC)}</strong></td>
+            <td class="tb-num"><strong>${fmtAmt(totOD)}</strong></td>
+            <td class="tb-num"><strong>${fmtAmt(totCC)}</strong></td>
+            <td class="tb-num"><strong>${fmtAmt(totCD)}</strong></td>
             <td></td>
           </tr>
         </tfoot>
@@ -223,8 +223,8 @@ function renderTbEntriesTable(entries, accountId, canVerify, isAdmin) {
                 <td style="padding:0.4rem 0.75rem">${fmtDate(e.entry_date)}</td>
                 <td style="padding:0.4rem 0.75rem">${typeBadge[e.entry_type] || e.entry_type}</td>
                 <td style="padding:0.4rem 0.75rem">${escHtml(e.particulars) || '-'}</td>
-                <td style="padding:0.4rem 0.75rem">${fmtNum(e.brokerage)}</td>
-                <td style="padding:0.4rem 0.75rem"><strong>${fmtNum(e.amount)}</strong></td>
+                <td style="padding:0.4rem 0.75rem">${fmtAmt(e.brokerage)}</td>
+                <td style="padding:0.4rem 0.75rem"><strong>${fmtAmt(e.amount)}</strong></td>
                 <td style="padding:0.4rem 0.75rem">${verifiedCell}</td>
                 <td style="padding:0.4rem 0.75rem">${escHtml(e.verified_by_name) || '-'}</td>
                 ${canVerify || isAdmin ? `<td style="padding:0.4rem 0.75rem">${action}</td>` : ''}

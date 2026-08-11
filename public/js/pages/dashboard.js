@@ -62,10 +62,10 @@ async function renderDashboard() {
                 tb.data.map(r => `
                   <tr>
                     <td><strong>${escHtml(r.account_name)}</strong></td>
-                    <td>${fmtNum(r.opening_credit)}</td>
-                    <td>${fmtNum(r.opening_debit)}</td>
-                    <td>${fmtNum(r.closing_credit)}</td>
-                    <td>${fmtNum(r.closing_debit)}</td>
+                    <td>${fmtAmt(r.opening_credit)}</td>
+                    <td>${fmtAmt(r.opening_debit)}</td>
+                    <td>${fmtAmt(r.closing_credit)}</td>
+                    <td>${fmtAmt(r.closing_debit)}</td>
                     <td>${r.is_verified
                       ? '<span class="badge badge-verified">✓ Verified</span>'
                       : '<span class="badge badge-pending">Pending</span>'}</td>

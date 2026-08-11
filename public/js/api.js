@@ -72,6 +72,13 @@ function fmtNum(n) {
   return parseFloat(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Amounts are stored as shortened values (÷1000 at input).
+// Use fmtAmt wherever the full rupee value should be displayed.
+function fmtAmt(n) {
+  if (n === null || n === undefined) return '-';
+  return (parseFloat(n) * 1000).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function fmtDate(d) {
   if (!d) return '-';
   return d.slice(0, 10);

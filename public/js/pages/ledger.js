@@ -18,8 +18,8 @@ async function renderLedger() {
           <button class="btn btn-outline btn-sm" onclick="exportLedger('pdf')">📄 PDF</button>
           <button class="btn btn-outline btn-sm" onclick="exportLedger('excel')">📊 CSV</button>
           <button class="btn btn-entry-reset" onclick="resetLedger()" title="Reset">↺</button>
-          <input type="date" id="led-from" value="${monthStart}" style="width:140px" />
-          <select id="led-account" style="width:190px">
+          <input type="date" id="led-from" value="${monthStart}" style="width:140px" onchange="loadLedger()" />
+          <select id="led-account" style="width:190px" onchange="loadLedger()">
             <option value="">-- Select Account --</option>
             ${APP.accountOptions()}
           </select>
@@ -38,8 +38,7 @@ async function renderLedger() {
       <div class="ledger-subtoolbar">
         <div style="display:flex;align-items:center;gap:0.5rem">
           <label style="font-size:0.8rem;color:#6b7280">To:</label>
-          <input type="date" id="led-to" value="${today}" style="width:140px" />
-          <button class="btn btn-primary btn-sm" onclick="loadLedger()">Load</button>
+          <input type="date" id="led-to" value="${today}" style="width:140px" onchange="loadLedger()" />
         </div>
         <div class="ledger-tabs">
           <button class="led-tab active" onclick="switchLedgerTab('all', this)">All Entries</button>
@@ -148,7 +147,7 @@ function renderLedgerTable(rows, totals) {
   const finalBal = runningBal;
   const balSign  = finalBal >= 0 ? 'Cr' : 'Dr';
   const balColor = finalBal >= 0 ? '#2e7d32' : '#c62828';
-  balEl.textContent = `${fmtNum(Math.abs(finalBal))} ${balSign}`;
+  balEl.textContent = `${fmtAmt(Math.abs(finalBal))} ${balSign}`;
   balEl.style.color = balColor;
 
   const narDisplay = showNarration ? '' : 'none';
@@ -176,14 +175,14 @@ function renderLedgerTable(rows, totals) {
             <td><em>Opening Balance</em></td>
             <td class="led-narration-col" style="display:${narDisplay}"><em>Opening Balance</em></td>
             <td></td>
-            <td style="text-align:right;color:#2e7d32">${opening >= 0 ? fmtNum(opening) : ''}</td>
-            <td style="text-align:right;color:#c62828">${opening < 0  ? fmtNum(Math.abs(opening)) : ''}</td>
+            <td style="text-align:right;color:#2e7d32">${opening >= 0 ? fmtAmt(opening) : ''}</td>
+            <td style="text-align:right;color:#c62828">${opening < 0  ? fmtAmt(Math.abs(opening)) : ''}</td>
             <td style="text-align:right;font-weight:600">
-              ${fmtNum(Math.abs(opening))} ${opening >= 0 ? 'Cr' : 'Dr'}
+              ${fmtAmt(Math.abs(opening))} ${opening >= 0 ? 'Cr' : 'Dr'}
             </td>
           </tr>
           ${processedRows.map(r => {
-            const balStr = `${fmtNum(Math.abs(r.runningBal))} ${r.runningBal >= 0 ? 'Cr' : 'Dr'}`;
+            const balStr = `${fmtAmt(Math.abs(r.runningBal))} ${r.runningBal >= 0 ? 'Cr' : 'Dr'}`;
             const balC   = r.runningBal >= 0 ? '#2e7d32' : '#c62828';
             return `
               <tr id="ledger-row-${r.id}" class="${r.is_locked ? 'led-locked-row' : ''}">
@@ -195,9 +194,9 @@ function renderLedgerTable(rows, totals) {
                 <td class="led-narration-col" style="display:${narDisplay};color:#6b7280;font-size:0.82rem">
                   ${escHtml(r.message) || ''}
                 </td>
-                <td style="text-align:right;color:#6b7280">${r.brokerage ? fmtNum(r.brokerage) : ''}</td>
-                <td style="text-align:right;color:#2e7d32;font-weight:600">${r.isCredit ? fmtNum(r.amount) : ''}</td>
-                <td style="text-align:right;color:#c62828;font-weight:600">${r.isDebit  ? fmtNum(r.amount) : ''}</td>
+                <td style="text-align:right;color:#6b7280">${r.brokerage ? fmtAmt(r.brokerage) : ''}</td>
+                <td style="text-align:right;color:#2e7d32;font-weight:600">${r.isCredit ? fmtAmt(r.amount) : ''}</td>
+                <td style="text-align:right;color:#c62828;font-weight:600">${r.isDebit  ? fmtAmt(r.amount) : ''}</td>
                 <td style="text-align:right;font-weight:600;color:${balC}">${balStr}</td>
               </tr>
             `;
@@ -207,12 +206,12 @@ function renderLedgerTable(rows, totals) {
           <tr class="led-total-row">
             <td colspan="3" style="text-align:right;font-weight:700">Total :</td>
             <td class="led-narration-col" style="display:${narDisplay};text-align:right;font-weight:700;color:#6b7280">
-              ${totalBrok ? fmtNum(totalBrok) : ''}
+              ${totalBrok ? fmtAmt(totalBrok) : ''}
             </td>
-            <td style="text-align:right;font-weight:700;color:#6b7280">${totalBrok ? fmtNum(totalBrok) : ''}</td>
-            <td style="text-align:right;font-weight:700;color:#2e7d32">${fmtNum(totalCr)}</td>
-            <td style="text-align:right;font-weight:700;color:#c62828">${fmtNum(totalDr)}</td>
-            <td style="text-align:right;font-weight:700;color:${balColor}">${fmtNum(Math.abs(finalBal))} ${balSign}</td>
+            <td style="text-align:right;font-weight:700;color:#6b7280">${totalBrok ? fmtAmt(totalBrok) : ''}</td>
+            <td style="text-align:right;font-weight:700;color:#2e7d32">${fmtAmt(totalCr)}</td>
+            <td style="text-align:right;font-weight:700;color:#c62828">${fmtAmt(totalDr)}</td>
+            <td style="text-align:right;font-weight:700;color:${balColor}">${fmtAmt(Math.abs(finalBal))} ${balSign}</td>
           </tr>
         </tfoot>
       </table>
