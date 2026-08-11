@@ -123,9 +123,22 @@ router.post('/', requireOperator, async (req, res) => {
     await client.query('COMMIT');
 
     audit(req, 'create', 'transactions', rows[0].id, null, {
-      voucher_number: voucherNumber, amount: amt,
-      debit_party: dAcc.account_name, credit_party: cAcc.account_name,
-      debit_commission: dComm, credit_commission: cComm, status: 'Pending Verification'
+      voucher_number:    voucherNumber,
+      transaction_date:  txDate,
+      transaction_city:  transaction_city  || null,
+      token_details:     token_details     || null,
+      amount:            amt,
+      wallet_city:       wallet_city       || null,
+      debit_party:       dAcc.account_name,
+      debit_rate:        dRate,
+      debit_commission:  dComm,
+      credit_party:      cAcc.account_name,
+      credit_wallet_city:credit_wallet_city|| null,
+      credit_rate:       cRate,
+      credit_commission: cComm,
+      remarks:           remarks           || null,
+      message:           message           || null,
+      status:            'Pending Verification'
     });
 
     res.status(201).json({ ...rows[0], debit_party_name: dAcc.account_name, credit_party_name: cAcc.account_name });
@@ -164,6 +177,10 @@ router.patch('/:id', requireOperator, async (req, res) => {
     const cAcc = (await pool.query('SELECT * FROM accounts WHERE id=$1 AND is_active=1', [credit_party_id])).rows[0];
     if (!dAcc) return res.status(400).json({ error: 'Debit Party not found or inactive' });
     if (!cAcc) return res.status(400).json({ error: 'Credit Party not found or inactive' });
+
+    // Fetch old party names so audit before/after both use names (not IDs)
+    const oldDAcc = (await pool.query('SELECT account_name FROM accounts WHERE id=$1', [tx.debit_party_id])).rows[0];
+    const oldCAcc = (await pool.query('SELECT account_name FROM accounts WHERE id=$1', [tx.credit_party_id])).rows[0];
 
     const client = await pool.connect();
     try {
@@ -205,9 +222,40 @@ router.patch('/:id', requireOperator, async (req, res) => {
 
       await client.query('COMMIT');
 
+      // Build before/after capturing every editable field
       audit(req, 'update', 'transactions', tx.id,
-        { amount: tx.amount, debit_party_id: tx.debit_party_id, credit_party_id: tx.credit_party_id },
-        { amount: amt, debit_party: dAcc.account_name, credit_party: cAcc.account_name }
+        {
+          transaction_date:   tx.transaction_date,
+          transaction_city:   tx.transaction_city,
+          token_details:      tx.token_details,
+          amount:             tx.amount,
+          wallet_city:        tx.wallet_city,
+          debit_party:        oldDAcc?.account_name || tx.debit_party_id,
+          debit_rate:         tx.debit_rate,
+          debit_commission:   tx.debit_commission,
+          credit_party:       oldCAcc?.account_name || tx.credit_party_id,
+          credit_rate:        tx.credit_rate,
+          credit_commission:  tx.credit_commission,
+          credit_wallet_city: tx.credit_wallet_city,
+          remarks:            tx.remarks,
+          message:            tx.message
+        },
+        {
+          transaction_date:   txDate,
+          transaction_city:   transaction_city   || null,
+          token_details:      token_details      || null,
+          amount:             amt,
+          wallet_city:        wallet_city        || null,
+          debit_party:        dAcc.account_name,
+          debit_rate:         dRate,
+          debit_commission:   dComm,
+          credit_party:       cAcc.account_name,
+          credit_rate:        cRate,
+          credit_commission:  cComm,
+          credit_wallet_city: credit_wallet_city || null,
+          remarks:            remarks            || null,
+          message:            message            || null
+        }
       );
       res.json({ ...rows[0], debit_party_name: dAcc.account_name, credit_party_name: cAcc.account_name });
     } catch (err) {
@@ -275,7 +323,18 @@ router.patch('/:id/verify', requireOperator, async (req, res) => {
 
     audit(req, 'verify_transaction', 'transactions', tx.id,
       { status: 'Pending Verification' },
-      { status: 'Verified', voucher_number: tx.voucher_number, amount: baseAmt, debit_amt: debitAmt, credit_amt: creditAmt }
+      {
+        status:           'Verified',
+        voucher_number:   tx.voucher_number,
+        transaction_date: tx.transaction_date,
+        amount:           baseAmt,
+        debit_party:      tx.debit_party_name,
+        debit_commission: dComm,
+        debit_ledger_amt: debitAmt,
+        credit_party:     tx.credit_party_name,
+        credit_commission:cComm,
+        credit_ledger_amt:creditAmt
+      }
     );
 
     const updated = (await pool.query(`

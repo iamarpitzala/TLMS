@@ -30,6 +30,46 @@ function fmtAuditVal(raw) {
   }
 }
 
+// Normalise legacy audit objects that used _id keys instead of name keys
+function normaliseAuditObj(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const out = { ...obj };
+  // Map old id-based keys to name-based keys if name key absent
+  if (out.debit_party_id !== undefined && out.debit_party === undefined) {
+    out.debit_party = out.debit_party_id;
+    delete out.debit_party_id;
+  }
+  if (out.credit_party_id !== undefined && out.credit_party === undefined) {
+    out.credit_party = out.credit_party_id;
+    delete out.credit_party_id;
+  }
+  return out;
+}
+
+// For update rows: show only the fields that actually changed, highlighted
+function fmtAuditDiff(oldRaw, newRaw) {
+  if (!oldRaw || !newRaw) {
+    return { old: fmtAuditVal(oldRaw), new: fmtAuditVal(newRaw) };
+  }
+  try {
+    const oldObj = normaliseAuditObj(JSON.parse(oldRaw));
+    const newObj = normaliseAuditObj(JSON.parse(newRaw));
+    const allKeys = new Set([...Object.keys(oldObj), ...Object.keys(newObj)]);
+    let oldOut = '', newOut = '';
+    allKeys.forEach(k => {
+      const ov = String(oldObj[k] ?? '-');
+      const nv = String(newObj[k] ?? '-');
+      const changed = ov !== nv;
+      const style = changed ? 'font-weight:700' : 'opacity:0.45';
+      oldOut += `<div style="${style}"><span style="color:#6b7280">${escHtml(k)}:</span> ${escHtml(ov)}</div>`;
+      newOut += `<div style="${style}"><span style="color:#6b7280">${escHtml(k)}:</span> ${escHtml(nv)}</div>`;
+    });
+    return { old: oldOut || '-', new: newOut || '-' };
+  } catch {
+    return { old: fmtAuditVal(oldRaw), new: fmtAuditVal(newRaw) };
+  }
+}
+
 async function renderAudit() {
   const page = document.getElementById('page-audit');
 
@@ -75,7 +115,18 @@ async function renderAudit() {
             </tr>
           </thead>
           <tbody>
-            ${rows.map(r => `
+            ${rows.map(r => {
+              const isUpdate = r.action === 'update';
+              let beforeHtml, afterHtml;
+              if (isUpdate) {
+                const diff = fmtAuditDiff(r.old_value, r.new_value);
+                beforeHtml = diff.old;
+                afterHtml  = diff.new;
+              } else {
+                beforeHtml = fmtAuditVal(r.old_value);
+                afterHtml  = fmtAuditVal(r.new_value);
+              }
+              return `
               <tr>
                 <td style="font-size:0.78rem;color:#9ca3af">${r.id}</td>
                 <td style="white-space:nowrap;font-size:0.82rem">${r.timestamp ? r.timestamp.slice(0,16).replace('T',' ') : '-'}</td>
@@ -83,10 +134,10 @@ async function renderAudit() {
                 <td>${auditActionBadge(r.action)}</td>
                 <td style="font-size:0.82rem">${escHtml(r.table_name) || '-'}</td>
                 <td style="text-align:center">${r.record_id || '-'}</td>
-                <td style="font-size:0.8rem;color:#c62828;max-width:200px">${fmtAuditVal(r.old_value)}</td>
-                <td style="font-size:0.8rem;color:#2e7d32;max-width:200px">${fmtAuditVal(r.new_value)}</td>
-              </tr>
-            `).join('')}
+                <td style="font-size:0.8rem;color:#c62828;max-width:220px">${beforeHtml}</td>
+                <td style="font-size:0.8rem;color:#2e7d32;max-width:220px">${afterHtml}</td>
+              </tr>`;
+            }).join('')}
           </tbody>
         </table>
       </div>
