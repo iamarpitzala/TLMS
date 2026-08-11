@@ -32,6 +32,10 @@ async function renderTransactions() {
             ${APP.accountOptions()}
           </select>
         </div>
+        <div class="tx-entry-field">
+          <label>Amount <span class="req">*</span> <span style="font-weight:400;color:#9ca3af;font-size:0.72rem">(in '000s)</span></label>
+          <input type="number" id="te-amount" placeholder="e.g. 100 = 1,00,000" min="0" step="0.001" />
+        </div>
         <div class="tx-entry-field tx-entry-field--sm">
           <label>D.Rate %</label>
           <input type="number" id="te-debit-rate" value="0" min="0" max="100" step="0.01" />
@@ -39,10 +43,6 @@ async function renderTransactions() {
         <div class="tx-entry-field tx-entry-field--sm">
           <label>D.Comm</label>
           <input type="text" id="te-debit-comm" value="0.000" readonly class="tx-comm-readonly" />
-        </div>
-        <div class="tx-entry-field">
-          <label>Amount <span class="req">*</span> <span style="font-weight:400;color:#9ca3af;font-size:0.72rem">(in '000s)</span></label>
-          <input type="number" id="te-amount" placeholder="e.g. 100 = 1,00,000" min="0" step="0.001" />
         </div>
         <div class="tx-entry-field tx-entry-field--wide">
           <label>Credit Party <span class="req">*</span></label>
@@ -430,9 +430,9 @@ function buildTransactionForm(tx = null) {
       <div class="section-label">Transaction Details</div>
       <div class="form-grid-3">
         <div class="field-group"><label>Date</label><input type="date" id="tx-date" value="${v('transaction_date', today)}" /></div>
-        <div class="field-group"><label>City</label><input type="text" id="tx-city" value="${escHtml(v('transaction_city'))}" placeholder="City" /></div>
         <div class="field-group"><label>Token</label><input type="text" id="tx-token" value="${escHtml(v('token_details'))}" placeholder="Token / ref" /></div>
         <div class="field-group"><label class="required">Amount <span style="font-weight:400;color:#9ca3af;font-size:0.72rem">(in '000s)</span></label><input type="number" id="tx-amount" value="${v('amount','')}" placeholder="e.g. 100 = 1,00,000" step="0.001" min="0" /></div>
+        <div class="field-group"><label>City</label><input type="text" id="tx-city" value="${escHtml(v('transaction_city'))}" placeholder="City" /></div>
         <div class="field-group"><label>Wallet City</label><input type="text" id="tx-wallet-city" value="${escHtml(v('wallet_city'))}" placeholder="Wallet city" /></div>
         <div class="field-group"><label>Remarks</label><input type="text" id="tx-remarks" value="${escHtml(v('remarks'))}" placeholder="Remarks..." /></div>
       </div>
