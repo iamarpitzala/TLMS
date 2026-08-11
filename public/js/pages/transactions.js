@@ -276,9 +276,11 @@ function renderTxTable({ data, total, page, limit }) {
                 <div class="btn-group">
                   <button class="btn btn-outline btn-xs" onclick="viewTransaction(${tx.id})">👁</button>
                   <a href="/api/export/transaction/pdf?id=${tx.id}" target="_blank" class="btn btn-outline btn-xs">📄</a>
-                  ${APP.isOperator() && tx.status === 'Pending Verification' ? `
+                  ${APP.isOperator() ? `
                     <button class="btn btn-outline btn-xs" onclick="editTransaction(${tx.id})">✏️</button>
-                    <button class="btn btn-success btn-xs"  onclick="verifyTransaction(${tx.id})">✓</button>
+                  ` : ''}
+                  ${APP.isOperator() && tx.status === 'Pending Verification' ? `
+                    <button class="btn btn-success btn-xs" onclick="verifyTransaction(${tx.id})">✓</button>
                   ` : ''}
                 </div>
               </td>
@@ -357,12 +359,11 @@ function txDetailField(label, value) {
     </div>`;
 }
 
-async function editTransaction(txId) {
+async function editTransaction(txId, onSuccess = null) {
   if (!APP.isOperator()) { toast('Access denied', 'error'); return; }
   let tx;
   try { tx = await API.get('/api/transactions/' + txId); }
   catch (e) { toast(e.message, 'error'); return; }
-  if (tx.status === 'Verified') { toast('Cannot edit a verified transaction.', 'error'); return; }
 
   Modal.open({
     title: `Edit — ${tx.voucher_number}`,
@@ -377,6 +378,8 @@ async function editTransaction(txId) {
     document.getElementById(id)?.addEventListener('input', updateCommissionDisplays);
   });
   updateCommissionDisplays();
+  // Store callback so submitEditTransaction can call it after save
+  editTransaction._onSuccess = onSuccess;
 }
 
 async function submitEditTransaction(txId) {
@@ -405,7 +408,13 @@ async function submitEditTransaction(txId) {
     await API.patch('/api/transactions/' + txId, data);
     toast('Transaction updated', 'success');
     Modal.close();
-    loadTransactions(txPage);
+    // Use caller-supplied callback (e.g. from ledger/trial-balance), or default to tx list reload
+    if (typeof editTransaction._onSuccess === 'function') {
+      editTransaction._onSuccess();
+      editTransaction._onSuccess = null;
+    } else {
+      loadTransactions(txPage);
+    }
   } catch (e) {
     errEl.textContent = e.message; errEl.style.display = 'block';
   } finally {

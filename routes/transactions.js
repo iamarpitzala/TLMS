@@ -138,12 +138,11 @@ router.post('/', requireOperator, async (req, res) => {
   }
 });
 
-// PATCH /api/transactions/:id — edit (Pending Verification only)
+// PATCH /api/transactions/:id — edit (any status, admin/operator only)
 router.patch('/:id', requireOperator, async (req, res) => {
   try {
     const tx = (await pool.query('SELECT * FROM transactions WHERE id=$1', [req.params.id])).rows[0];
     if (!tx) return res.status(404).json({ error: 'Transaction not found' });
-    if (tx.status === 'Verified') return res.status(403).json({ error: 'Cannot edit a verified transaction' });
 
     const {
       transaction_date, transaction_city, token_details, amount,
@@ -159,28 +158,73 @@ router.patch('/:id', requireOperator, async (req, res) => {
     const cRate = parseFloat(credit_rate) || 0;
     const dComm = parseFloat((amt * dRate / 100).toFixed(2));
     const cComm = parseFloat((amt * cRate / 100).toFixed(2));
+    const txDate = transaction_date || tx.transaction_date;
 
     const dAcc = (await pool.query('SELECT * FROM accounts WHERE id=$1 AND is_active=1', [debit_party_id])).rows[0];
     const cAcc = (await pool.query('SELECT * FROM accounts WHERE id=$1 AND is_active=1', [credit_party_id])).rows[0];
     if (!dAcc) return res.status(400).json({ error: 'Debit Party not found or inactive' });
     if (!cAcc) return res.status(400).json({ error: 'Credit Party not found or inactive' });
 
-    const { rows } = await pool.query(`
-      UPDATE transactions SET
-        transaction_date=$1, transaction_city=$2, token_details=$3, amount=$4,
-        wallet_city=$5, debit_party_id=$6, debit_rate=$7, debit_commission=$8,
-        remarks=$9, message=$10, credit_wallet_city=$11, credit_party_id=$12,
-        credit_rate=$13, credit_commission=$14
-      WHERE id=$15 RETURNING *
-    `, [transaction_date||tx.transaction_date, transaction_city||null, token_details||null, amt,
-        wallet_city||null, debit_party_id, dRate, dComm,
-        remarks||null, message||null, credit_wallet_city||null, credit_party_id, cRate, cComm, tx.id]);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    audit(req, 'update', 'transactions', tx.id,
-      { amount: tx.amount, debit_party_id: tx.debit_party_id, credit_party_id: tx.credit_party_id },
-      { amount: amt, debit_party: dAcc.account_name, credit_party: cAcc.account_name }
-    );
-    res.json({ ...rows[0], debit_party_name: dAcc.account_name, credit_party_name: cAcc.account_name });
+      const { rows } = await client.query(`
+        UPDATE transactions SET
+          transaction_date=$1, transaction_city=$2, token_details=$3, amount=$4,
+          wallet_city=$5, debit_party_id=$6, debit_rate=$7, debit_commission=$8,
+          remarks=$9, message=$10, credit_wallet_city=$11, credit_party_id=$12,
+          credit_rate=$13, credit_commission=$14
+        WHERE id=$15 RETURNING *
+      `, [txDate, transaction_city||null, token_details||null, amt,
+          wallet_city||null, debit_party_id, dRate, dComm,
+          remarks||null, message||null, credit_wallet_city||null, credit_party_id, cRate, cComm, tx.id]);
+
+      // If already Verified, keep ledger entries in sync with updated values
+      if (tx.status === 'Verified') {
+        const voucherNumber = tx.voucher_number;
+        await client.query(`
+          UPDATE ledger_entries SET
+            entry_date=$1, account_id=$2, amount=$3, brokerage=$4,
+            particulars=$5, message=$6
+          WHERE transaction_id=$7 AND entry_type='debit'
+        `, [txDate, debit_party_id, amt, dComm,
+            `Txn to ${cAcc.account_name} [${voucherNumber}]`, message||null, tx.id]);
+
+        await client.query(`
+          UPDATE ledger_entries SET
+            entry_date=$1, account_id=$2, amount=$3, brokerage=$4,
+            particulars=$5, message=$6
+          WHERE transaction_id=$7 AND entry_type='credit'
+        `, [txDate, credit_party_id, amt, cComm,
+            `Txn from ${dAcc.account_name} [${voucherNumber}]`, message||null, tx.id]);
+
+        await client.query(`
+          UPDATE ledger_entries SET
+            entry_date=$1, account_id=$2, amount=$3, brokerage=$4
+          WHERE transaction_id=$5 AND entry_type='commission_debit'
+        `, [txDate, debit_party_id, dComm, dComm, tx.id]);
+
+        await client.query(`
+          UPDATE ledger_entries SET
+            entry_date=$1, account_id=$2, amount=$3, brokerage=$4
+          WHERE transaction_id=$5 AND entry_type='commission_credit'
+        `, [txDate, credit_party_id, cComm, cComm, tx.id]);
+      }
+
+      await client.query('COMMIT');
+
+      audit(req, 'update', 'transactions', tx.id,
+        { amount: tx.amount, debit_party_id: tx.debit_party_id, credit_party_id: tx.credit_party_id },
+        { amount: amt, debit_party: dAcc.account_name, credit_party: cAcc.account_name }
+      );
+      res.json({ ...rows[0], debit_party_name: dAcc.account_name, credit_party_name: cAcc.account_name });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

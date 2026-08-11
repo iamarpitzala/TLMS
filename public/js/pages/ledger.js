@@ -187,19 +187,21 @@ function renderLedgerTable(rows, totals) {
             const balStr = `${fmtAmt(Math.abs(r.runningBal))} ${r.runningBal >= 0 ? 'Cr' : 'Dr'}`;
             const balC   = r.runningBal >= 0 ? '#2e7d32' : '#c62828';
 
-            // Build lock/unlock action button based on role and state
+            // Build action buttons based on role and lock state
             let actionBtn = '';
+            if (APP.isOperator()) {
+              // Edit is always available to operators regardless of lock state
+              actionBtn += `<button class="btn btn-outline btn-xs" onclick="editTransaction(${r.transaction_id}, loadLedger)" title="Edit Transaction">✏️</button> `;
+            }
             if (r.is_locked) {
-              // Locked: only admin can unlock
               if (APP.isAdmin()) {
-                actionBtn = `<button class="btn btn-warning btn-xs" onclick="unlockLedgerEntry(${r.id})">🔓 Unlock</button>`;
+                actionBtn += `<button class="btn btn-warning btn-xs" onclick="unlockLedgerEntry(${r.id})">🔓 Unlock</button>`;
               } else {
-                actionBtn = `<span class="badge badge-locked" title="Locked">🔒</span>`;
+                actionBtn += `<span class="badge badge-locked" title="Locked">🔒</span>`;
               }
             } else {
-              // Unlocked: operator+ can lock (verify)
               if (APP.isOperator()) {
-                actionBtn = `<button class="btn btn-success btn-xs" onclick="lockLedgerEntry(${r.id})">🔒 Lock</button>`;
+                actionBtn += `<button class="btn btn-success btn-xs" onclick="lockLedgerEntry(${r.id})">🔒 Lock</button>`;
               }
             }
 

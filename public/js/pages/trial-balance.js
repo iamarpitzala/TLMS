@@ -185,6 +185,8 @@ function renderTbEntriesTable(entries, accountId, canVerify, isAdmin) {
     commission_credit: '<span class="badge badge-operator">Comm.C</span>'
   };
 
+  const showActions = canVerify || isAdmin;
+
   return `
     <div style="padding:0.75rem 1.25rem 0.75rem 2rem;border-left:4px solid #4fc3f7">
       <table style="font-size:0.82rem;width:100%;background:transparent">
@@ -198,7 +200,7 @@ function renderTbEntriesTable(entries, accountId, canVerify, isAdmin) {
             <th style="padding:0.45rem 0.75rem">Amount</th>
             <th style="padding:0.45rem 0.75rem">Verified</th>
             <th style="padding:0.45rem 0.75rem">Verified By</th>
-            ${canVerify || isAdmin ? '<th style="padding:0.45rem 0.75rem">Action</th>' : ''}
+            ${showActions ? '<th style="padding:0.45rem 0.75rem">Action</th>' : ''}
           </tr>
         </thead>
         <tbody>
@@ -208,13 +210,23 @@ function renderTbEntriesTable(entries, accountId, canVerify, isAdmin) {
                  <div class="verified-info">${e.verified_at ? e.verified_at.slice(0,16) : ''}</div>`
               : `<span class="badge badge-pending">Pending</span>`;
 
-            let action = '';
+            // Edit button — always shown to operators (uses transaction_id from the entry)
+            const editBtn = canVerify && e.transaction_id
+              ? `<button class="btn btn-outline btn-xs" title="Edit Transaction"
+                   onclick="editTransaction(${e.transaction_id}, () => loadTrialBalance().then(() => {
+                     const r = document.getElementById('tb-entries-${accountId}');
+                     if (r) r.style.display = 'table-row';
+                   }))">✏️</button>`
+              : '';
+
+            // Lock / unlock button
+            let lockBtn = '';
             if (!e.is_locked && canVerify) {
-              action = `<button class="btn btn-success btn-xs" onclick="verifyTbEntry(${e.id}, ${accountId})">✓ Verify</button>`;
+              lockBtn = `<button class="btn btn-success btn-xs" onclick="verifyTbEntry(${e.id}, ${accountId})">✓ Verify</button>`;
             } else if (e.is_locked && isAdmin) {
-              action = `<button class="btn btn-warning btn-xs" onclick="unlockTbEntry(${e.id}, ${accountId})">🔓 Unlock</button>`;
+              lockBtn = `<button class="btn btn-warning btn-xs" onclick="unlockTbEntry(${e.id}, ${accountId})">🔓 Unlock</button>`;
             } else if (e.is_locked) {
-              action = `<span class="badge badge-locked">🔒 Locked</span>`;
+              lockBtn = `<span class="badge badge-locked">🔒 Locked</span>`;
             }
 
             return `
@@ -227,7 +239,9 @@ function renderTbEntriesTable(entries, accountId, canVerify, isAdmin) {
                 <td style="padding:0.4rem 0.75rem"><strong>${fmtAmt(e.amount)}</strong></td>
                 <td style="padding:0.4rem 0.75rem">${verifiedCell}</td>
                 <td style="padding:0.4rem 0.75rem">${escHtml(e.verified_by_name) || '-'}</td>
-                ${canVerify || isAdmin ? `<td style="padding:0.4rem 0.75rem">${action}</td>` : ''}
+                ${showActions ? `<td style="padding:0.4rem 0.75rem">
+                  <div class="btn-group">${editBtn} ${lockBtn}</div>
+                </td>` : ''}
               </tr>
             `;
           }).join('')}
