@@ -165,6 +165,7 @@ function renderLedgerTable(rows, totals) {
             <th style="text-align:right">Cr Amount</th>
             <th style="text-align:right">Dr Amount</th>
             <th style="text-align:right">Balance</th>
+            <th style="text-align:center">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -180,10 +181,28 @@ function renderLedgerTable(rows, totals) {
             <td style="text-align:right;font-weight:600">
               ${fmtAmt(Math.abs(opening))} ${opening >= 0 ? 'Cr' : 'Dr'}
             </td>
+            <td></td>
           </tr>
           ${processedRows.map(r => {
             const balStr = `${fmtAmt(Math.abs(r.runningBal))} ${r.runningBal >= 0 ? 'Cr' : 'Dr'}`;
             const balC   = r.runningBal >= 0 ? '#2e7d32' : '#c62828';
+
+            // Build lock/unlock action button based on role and state
+            let actionBtn = '';
+            if (r.is_locked) {
+              // Locked: only admin can unlock
+              if (APP.isAdmin()) {
+                actionBtn = `<button class="btn btn-warning btn-xs" onclick="unlockLedgerEntry(${r.id})">🔓 Unlock</button>`;
+              } else {
+                actionBtn = `<span class="badge badge-locked" title="Locked">🔒</span>`;
+              }
+            } else {
+              // Unlocked: operator+ can lock (verify)
+              if (APP.isOperator()) {
+                actionBtn = `<button class="btn btn-success btn-xs" onclick="lockLedgerEntry(${r.id})">🔒 Lock</button>`;
+              }
+            }
+
             return `
               <tr id="ledger-row-${r.id}" class="${r.is_locked ? 'led-locked-row' : ''}">
                 <td style="color:#1e3a5f;font-size:0.8rem">
@@ -198,6 +217,7 @@ function renderLedgerTable(rows, totals) {
                 <td style="text-align:right;color:#2e7d32;font-weight:600">${r.isCredit ? fmtAmt(r.amount) : ''}</td>
                 <td style="text-align:right;color:#c62828;font-weight:600">${r.isDebit  ? fmtAmt(r.amount) : ''}</td>
                 <td style="text-align:right;font-weight:600;color:${balC}">${balStr}</td>
+                <td style="text-align:center">${actionBtn}</td>
               </tr>
             `;
           }).join('')}
@@ -212,6 +232,7 @@ function renderLedgerTable(rows, totals) {
             <td style="text-align:right;font-weight:700;color:#2e7d32">${fmtAmt(totalCr)}</td>
             <td style="text-align:right;font-weight:700;color:#c62828">${fmtAmt(totalDr)}</td>
             <td style="text-align:right;font-weight:700;color:${balColor}">${fmtAmt(Math.abs(finalBal))} ${balSign}</td>
+            <td></td>
           </tr>
         </tfoot>
       </table>
@@ -231,4 +252,28 @@ function exportLedger(format) {
     date_to:   document.getElementById('led-to')?.value   || ''
   });
   window.open(`/api/export/ledger/${format}${q}`, '_blank');
+}
+
+// ── Lock / Unlock ledger entries from the Ledger page ─────────────────────
+
+async function lockLedgerEntry(entryId) {
+  if (!confirm('Lock this entry? It will be marked as verified and cannot be edited without an administrator unlock.')) return;
+  try {
+    await API.patch(`/api/trial-balance/entries/${entryId}/verify`, {});
+    toast('Entry locked', 'success');
+    loadLedger();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function unlockLedgerEntry(entryId) {
+  if (!confirm('Unlock this entry? The action will be recorded in the audit log.')) return;
+  try {
+    await API.patch(`/api/trial-balance/entries/${entryId}/unlock`, {});
+    toast('Entry unlocked', 'success');
+    loadLedger();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
 }
