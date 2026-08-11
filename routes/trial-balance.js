@@ -19,18 +19,20 @@ async function computeTrialBalance(date_from, date_to) {
     pool.query(`
       SELECT
         le.account_id,
-        SUM(CASE WHEN le.entry_type IN ('debit','commission_debit')   THEN le.amount ELSE 0 END) AS debit_total,
-        SUM(CASE WHEN le.entry_type IN ('credit','commission_credit') THEN le.amount ELSE 0 END) AS credit_total
+        SUM(CASE WHEN le.entry_type = 'debit'  THEN le.amount ELSE 0 END) AS debit_total,
+        SUM(CASE WHEN le.entry_type = 'credit' THEN le.amount ELSE 0 END) AS credit_total
       FROM ledger_entries le
       WHERE 1=1 ${df} ${dt}
       GROUP BY le.account_id
     `, params),
 
     pool.query(`
-      SELECT le.*, u.username AS verified_by_name
+      SELECT le.*, u.username AS verified_by_name,
+        t.amount AS tx_base_amount
       FROM ledger_entries le
       LEFT JOIN users u ON le.verified_by = u.id
-      WHERE 1=1 ${df} ${dt}
+      LEFT JOIN transactions t ON le.transaction_id = t.id
+      WHERE le.entry_type IN ('debit','credit') ${df} ${dt}
       ORDER BY le.account_id, le.entry_date ASC, le.id ASC
     `, params)
   ]);

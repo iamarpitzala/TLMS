@@ -132,8 +132,8 @@ function renderLedgerTable(rows, totals) {
   let totalCr = 0, totalDr = 0, totalBrok = 0;
 
   const processedRows = rows.map(r => {
-    const isDebit  = r.entry_type === 'debit'  || r.entry_type === 'commission_debit';
-    const isCredit = r.entry_type === 'credit' || r.entry_type === 'commission_credit';
+    const isDebit  = r.entry_type === 'debit';
+    const isCredit = r.entry_type === 'credit';
     const amt = parseFloat(r.amount) || 0;
     const brok = parseFloat(r.brokerage) || 0;
 
@@ -216,8 +216,8 @@ function renderLedgerTable(rows, totals) {
                   ${escHtml(r.message) || ''}
                 </td>
                 <td style="text-align:right;color:#6b7280">${r.brokerage ? fmtAmt(r.brokerage) : ''}</td>
-                <td style="text-align:right;color:#2e7d32;font-weight:600">${r.isCredit ? fmtAmt(r.amount) : ''}</td>
-                <td style="text-align:right;color:#c62828;font-weight:600">${r.isDebit  ? fmtAmt(r.amount) : ''}</td>
+                <td style="text-align:right;color:#2e7d32;font-weight:600">${r.isCredit ? renderAmtWithBreakdown(r, 'credit') : ''}</td>
+                <td style="text-align:right;color:#c62828;font-weight:600">${r.isDebit  ? renderAmtWithBreakdown(r, 'debit')  : ''}</td>
                 <td style="text-align:right;font-weight:600;color:${balC}">${balStr}</td>
                 <td style="text-align:center">${actionBtn}</td>
               </tr>
@@ -278,4 +278,27 @@ async function unlockLedgerEntry(entryId) {
   } catch (e) {
     toast(e.message, 'error');
   }
+}
+
+// ── Amount + commission breakdown renderer ────────────────────────────────
+// tx_base_amount = original transaction amount (from transactions table join)
+// entry.brokerage = commission portion
+// Shows: total amount with a sub-line "base + comm" or "base − comm"
+function renderAmtWithBreakdown(entry, side) {
+  const total = parseFloat(entry.amount) || 0;
+  const comm  = parseFloat(entry.brokerage) || 0;
+  const base  = parseFloat(entry.tx_base_amount);
+
+  // Only show breakdown if we have a valid base and there is commission
+  if (comm === 0 || isNaN(base)) {
+    return fmtAmt(total);
+  }
+
+  const sign      = side === 'debit' ? '+' : '−';
+  const commColor = side === 'debit' ? '#c62828' : '#2e7d32';
+
+  return `${fmtAmt(total)}
+    <div style="font-size:0.73rem;font-weight:400;color:#6b7280;margin-top:1px">
+      ${fmtAmt(base)}&thinsp;<span style="color:${commColor}">${sign}&thinsp;${fmtAmt(comm)}</span>
+    </div>`;
 }

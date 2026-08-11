@@ -8,16 +8,18 @@ const router = express.Router();
 // ─── Helper: ledger data ──────────────────────────────────────────────────
 async function getLedgerData(account_id, type, date_from, date_to) {
   let typeFilter;
-  if (type === 'debit')       typeFilter = ['debit', 'commission_debit'];
-  else if (type === 'credit') typeFilter = ['credit', 'commission_credit'];
-  else                        typeFilter = ['debit', 'credit', 'commission_debit', 'commission_credit'];
+  if (type === 'debit')       typeFilter = ['debit'];
+  else if (type === 'credit') typeFilter = ['credit'];
+  else                        typeFilter = ['debit', 'credit'];
 
   const params = [account_id, typeFilter];
   let sql = `
-    SELECT le.*, u.username AS verified_by_name, a.account_name
+    SELECT le.*, u.username AS verified_by_name, a.account_name,
+      t.amount AS tx_base_amount
     FROM ledger_entries le
     LEFT JOIN users u ON le.verified_by = u.id
     LEFT JOIN accounts a ON le.account_id = a.id
+    LEFT JOIN transactions t ON le.transaction_id = t.id
     WHERE le.account_id=$1 AND le.entry_type = ANY($2)
   `;
   if (date_from) { params.push(date_from); sql += ` AND le.entry_date >= $${params.length}`; }
@@ -38,8 +40,8 @@ async function getTrialBalanceData(date_from, date_to) {
     pool.query(`
       SELECT
         le.account_id,
-        SUM(CASE WHEN le.entry_type IN ('debit','commission_debit')   THEN le.amount ELSE 0 END) AS debit_total,
-        SUM(CASE WHEN le.entry_type IN ('credit','commission_credit') THEN le.amount ELSE 0 END) AS credit_total
+        SUM(CASE WHEN le.entry_type = 'debit'  THEN le.amount ELSE 0 END) AS debit_total,
+        SUM(CASE WHEN le.entry_type = 'credit' THEN le.amount ELSE 0 END) AS credit_total
       FROM ledger_entries le
       WHERE 1=1 ${df} ${dt}
       GROUP BY le.account_id

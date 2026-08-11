@@ -84,7 +84,7 @@ function renderAccountsTable(data) {
               <td>${a.id}</td>
               <td><strong>${escHtml(a.account_name)}</strong></td>
               <td>${escHtml(a.mobile_number) || '-'}</td>
-              <td>${fmtNum(a.opening_amount)}</td>
+              <td>${fmtAmt(a.opening_amount)}</td>
               <td>${fmtDate(a.balance_date)}</td>
               <td>${escHtml(a.group_name) || '-'}</td>
               <td>${escHtml(a.parent_name) || escHtml(a.parent_account) || '-'}</td>
@@ -140,8 +140,8 @@ async function openAccountModal(id = null) {
             <input type="text" id="af-mobile" value="${escHtml(account?.mobile_number || '')}" placeholder="e.g. 9876543210" />
           </div>
           <div class="field-group">
-            <label>Opening Amount</label>
-            <input type="number" id="af-opening" value="${account?.opening_amount || 0}" step="0.01" placeholder="0.00" />
+            <label>Opening Amount <span style="font-weight:400;color:#9ca3af;font-size:0.72rem">(in '000s)</span></label>
+            <input type="number" id="af-opening" value="${account?.opening_amount || 0}" step="0.001" placeholder="e.g. 100 = 1,00,000" />
           </div>
           <div class="field-group">
             <label>Balance Date</label>

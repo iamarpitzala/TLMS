@@ -183,12 +183,15 @@ router.patch('/:id', requireOperator, async (req, res) => {
       // If already Verified, keep ledger entries in sync with updated values
       if (tx.status === 'Verified') {
         const voucherNumber = tx.voucher_number;
+        const debitAmt  = parseFloat((amt + dComm).toFixed(4));
+        const creditAmt = parseFloat((amt - cComm).toFixed(4));
+
         await client.query(`
           UPDATE ledger_entries SET
             entry_date=$1, account_id=$2, amount=$3, brokerage=$4,
             particulars=$5, message=$6
           WHERE transaction_id=$7 AND entry_type='debit'
-        `, [txDate, debit_party_id, amt, dComm,
+        `, [txDate, debit_party_id, debitAmt, dComm,
             `Txn to ${cAcc.account_name} [${voucherNumber}]`, message||null, tx.id]);
 
         await client.query(`
@@ -196,20 +199,8 @@ router.patch('/:id', requireOperator, async (req, res) => {
             entry_date=$1, account_id=$2, amount=$3, brokerage=$4,
             particulars=$5, message=$6
           WHERE transaction_id=$7 AND entry_type='credit'
-        `, [txDate, credit_party_id, amt, cComm,
+        `, [txDate, credit_party_id, creditAmt, cComm,
             `Txn from ${dAcc.account_name} [${voucherNumber}]`, message||null, tx.id]);
-
-        await client.query(`
-          UPDATE ledger_entries SET
-            entry_date=$1, account_id=$2, amount=$3, brokerage=$4
-          WHERE transaction_id=$5 AND entry_type='commission_debit'
-        `, [txDate, debit_party_id, dComm, dComm, tx.id]);
-
-        await client.query(`
-          UPDATE ledger_entries SET
-            entry_date=$1, account_id=$2, amount=$3, brokerage=$4
-          WHERE transaction_id=$5 AND entry_type='commission_credit'
-        `, [txDate, credit_party_id, cComm, cComm, tx.id]);
       }
 
       await client.query('COMMIT');
@@ -230,7 +221,7 @@ router.patch('/:id', requireOperator, async (req, res) => {
   }
 });
 
-// PATCH /api/transactions/:id/verify — Stage 1: creates ledger entries
+// PATCH /api/transactions/:id/verify — creates ledger entries (adjusted amounts, single row per party)
 router.patch('/:id/verify', requireOperator, async (req, res) => {
   const client = await pool.connect();
   try {
@@ -246,6 +237,14 @@ router.patch('/:id/verify', requireOperator, async (req, res) => {
     if (tx.status === 'Verified') return res.status(400).json({ error: 'Already verified' });
 
     const now = istTimestamp();
+    const dComm = parseFloat(tx.debit_commission)  || 0;
+    const cComm = parseFloat(tx.credit_commission) || 0;
+    const baseAmt = parseFloat(tx.amount);
+
+    // Debit party pays base + their commission; credit party receives base - their commission
+    const debitAmt  = parseFloat((baseAmt + dComm).toFixed(4));
+    const creditAmt = parseFloat((baseAmt - cComm).toFixed(4));
+
     await client.query('BEGIN');
 
     await client.query(
@@ -257,25 +256,26 @@ router.patch('/:id/verify', requireOperator, async (req, res) => {
       INSERT INTO ledger_entries(account_id, transaction_id, entry_date, entry_type, particulars, message, brokerage, amount, created_at)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
     `;
-    await client.query(insertLE, [tx.debit_party_id, tx.id, tx.transaction_date, 'debit',
-      `Txn to ${tx.credit_party_name} [${tx.voucher_number}]`, tx.message||null, tx.debit_commission, tx.amount, now]);
-    await client.query(insertLE, [tx.credit_party_id, tx.id, tx.transaction_date, 'credit',
-      `Txn from ${tx.debit_party_name} [${tx.voucher_number}]`, tx.message||null, tx.credit_commission, tx.amount, now]);
 
-    if (tx.debit_commission > 0) {
-      await client.query(insertLE, [tx.debit_party_id, tx.id, tx.transaction_date, 'commission_debit',
-        `Commission [${tx.voucher_number}]`, null, tx.debit_commission, tx.debit_commission, now]);
-    }
-    if (tx.credit_commission > 0) {
-      await client.query(insertLE, [tx.credit_party_id, tx.id, tx.transaction_date, 'commission_credit',
-        `Commission [${tx.voucher_number}]`, null, tx.credit_commission, tx.credit_commission, now]);
-    }
+    // Single debit entry: amount includes commission (debit party is charged base + comm)
+    await client.query(insertLE, [
+      tx.debit_party_id, tx.id, tx.transaction_date, 'debit',
+      `Txn to ${tx.credit_party_name} [${tx.voucher_number}]`,
+      tx.message || null, dComm, debitAmt, now
+    ]);
+
+    // Single credit entry: amount net of commission (credit party receives base - comm)
+    await client.query(insertLE, [
+      tx.credit_party_id, tx.id, tx.transaction_date, 'credit',
+      `Txn from ${tx.debit_party_name} [${tx.voucher_number}]`,
+      tx.message || null, cComm, creditAmt, now
+    ]);
 
     await client.query('COMMIT');
 
     audit(req, 'verify_transaction', 'transactions', tx.id,
       { status: 'Pending Verification' },
-      { status: 'Verified', voucher_number: tx.voucher_number, amount: tx.amount }
+      { status: 'Verified', voucher_number: tx.voucher_number, amount: baseAmt, debit_amt: debitAmt, credit_amt: creditAmt }
     );
 
     const updated = (await pool.query(`

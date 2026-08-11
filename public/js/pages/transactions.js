@@ -336,6 +336,7 @@ async function viewTransaction(id) {
           ${txDetailField('Credit Commission', fmtAmt(tx.credit_commission))}
           ${txDetailField('Remarks', tx.remarks)}
           ${txDetailField('Message', tx.message)}
+          ${tx.created_at ? txDetailField('Recorded At', tx.created_at.slice(0,16)) : ''}
           ${tx.verified_by_name ? txDetailField('Verified By', tx.verified_by_name) : ''}
           ${tx.verified_at ? txDetailField('Verified At', tx.verified_at.slice(0,16)) : ''}
         </div>

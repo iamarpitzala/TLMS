@@ -179,10 +179,8 @@ function renderTrialBalanceTable(rows, wrap) {
 
 function renderTbEntriesTable(entries, accountId, canVerify, isAdmin) {
   const typeBadge = {
-    debit:             '<span class="badge badge-pending">Debit</span>',
-    credit:            '<span class="badge badge-verified">Credit</span>',
-    commission_debit:  '<span class="badge badge-admin">Comm.D</span>',
-    commission_credit: '<span class="badge badge-operator">Comm.C</span>'
+    debit:  '<span class="badge badge-pending">Debit</span>',
+    credit: '<span class="badge badge-verified">Credit</span>'
   };
 
   const showActions = canVerify || isAdmin;
@@ -236,7 +234,7 @@ function renderTbEntriesTable(entries, accountId, canVerify, isAdmin) {
                 <td style="padding:0.4rem 0.75rem">${typeBadge[e.entry_type] || e.entry_type}</td>
                 <td style="padding:0.4rem 0.75rem">${escHtml(e.particulars) || '-'}</td>
                 <td style="padding:0.4rem 0.75rem">${fmtAmt(e.brokerage)}</td>
-                <td style="padding:0.4rem 0.75rem"><strong>${fmtAmt(e.amount)}</strong></td>
+                <td style="padding:0.4rem 0.75rem"><strong>${tbAmtWithBreakdown(e)}</strong></td>
                 <td style="padding:0.4rem 0.75rem">${verifiedCell}</td>
                 <td style="padding:0.4rem 0.75rem">${escHtml(e.verified_by_name) || '-'}</td>
                 ${showActions ? `<td style="padding:0.4rem 0.75rem">
@@ -292,4 +290,22 @@ function exportTrialBalance(format) {
     date_to:   document.getElementById('tb-to')?.value   || ''
   });
   window.open(`/api/export/trial-balance/${format}${q}`, '_blank');
+}
+
+// ── Amount + commission breakdown for trial balance entry rows ────────────
+function tbAmtWithBreakdown(entry) {
+  const total = parseFloat(entry.amount) || 0;
+  const comm  = parseFloat(entry.brokerage) || 0;
+  const base  = parseFloat(entry.tx_base_amount);
+
+  if (comm === 0 || isNaN(base)) return fmtAmt(total);
+
+  const side      = entry.entry_type === 'debit' ? 'debit' : 'credit';
+  const sign      = side === 'debit' ? '+' : '−';
+  const commColor = side === 'debit' ? '#c62828' : '#2e7d32';
+
+  return `${fmtAmt(total)}
+    <div style="font-size:0.73rem;font-weight:400;color:#6b7280;margin-top:1px">
+      ${fmtAmt(base)}&thinsp;<span style="color:${commColor}">${sign}&thinsp;${fmtAmt(comm)}</span>
+    </div>`;
 }
