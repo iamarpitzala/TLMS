@@ -7,7 +7,26 @@ a { text-decoration: none; color: inherit; }
 button { cursor: pointer; font-family: inherit; }
 input, select, textarea { font-family: inherit; font-size: 0.95rem; }
 
-/* ── Login ────────────────────────────────────────────────────────────── */
+/* ── Loading screen ───────────────────────────────────────────────────── */
+.loading-screen {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #1e3a5f 0%, #16213e 100%);
+  flex-direction: column;
+}
+.loading-screen-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+  color: #fff;
+}
+.loading-screen-title {
+  font-size: 1.6rem; font-weight: 700; letter-spacing: 0.05em;
+  color: #fff; margin-top: 0.25rem;
+}
+
+.loading-screen-inner .spinner {
+  border-color: rgba(255,255,255,0.25);
+  border-top-color: #fff;
+}
 .login-wrap {
   min-height: 100vh; display: flex; align-items: center; justify-content: center;
   background: linear-gradient(135deg, #1e3a5f 0%, #16213e 100%);

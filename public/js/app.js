@@ -9,9 +9,11 @@ async function checkAuth() {
     const data = await API.get('/api/auth/me');
     APP.user = data.user;
     await APP.loadAccounts();
+    document.getElementById('loading-screen').style.display = 'none';
     showApp();
     navigate('dashboard');
   } catch (e) {
+    document.getElementById('loading-screen').style.display = 'none';
     showLogin();
   }
 }
