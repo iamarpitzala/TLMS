@@ -89,6 +89,8 @@ async function renderTransactions() {
           <span style="color:#9ca3af;font-size:0.85rem">–</span>
           <input type="date" id="tx-f-to" style="width:140px" onchange="loadTransactions(1)" />
           <button class="btn btn-outline btn-sm" onclick="clearTxFilters()">Clear</button>
+          <button class="btn btn-outline btn-sm" onclick="setTxDatePreset('today')">Today</button>
+          <button class="btn btn-outline btn-sm" onclick="setTxDatePreset('month')">This Month</button>
         </div>
         <div class="tx-toolbar-right">
           <button class="btn btn-outline btn-sm" onclick="exportTransactions('excel')">📊 Excel</button>
@@ -204,22 +206,13 @@ async function loadTransactions(p = 1) {
     date_from: document.getElementById('tx-f-from')?.value    || '',
     date_to:   document.getElementById('tx-f-to')?.value      || '',
     status:    txStatusFilter,
+    search:    search,
     page: p,
     limit: TX_PAGE_SIZE
   });
 
   try {
     const result = await API.get('/api/transactions' + q);
-    // Client-side search filter on voucher, party names, city
-    if (search) {
-      const s = search.toLowerCase();
-      result.data = result.data.filter(tx =>
-        (tx.voucher_number||'').toLowerCase().includes(s) ||
-        (tx.debit_party_name||'').toLowerCase().includes(s) ||
-        (tx.credit_party_name||'').toLowerCase().includes(s) ||
-        (tx.transaction_city||'').toLowerCase().includes(s)
-      );
-    }
     renderTxTable(result);
   } catch (e) {
     wrap.innerHTML = `<div class="alert alert-error">${escHtml(e.message)}</div>`;
@@ -232,7 +225,7 @@ function renderTxTable({ data, total, page, limit }) {
   if (!wrap) return;
 
   if (data.length === 0) {
-    wrap.innerHTML = `<div style="text-align:center;padding:3rem;color:#9ca3af">No transactions found.</div>`;
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">💸</div><p>No transactions found.</p></div>`;
     if (pgEl) pgEl.innerHTML = '';
     return;
   }
@@ -343,6 +336,12 @@ async function viewTransaction(id) {
       `,
       footer: `
         <a href="/api/export/transaction/pdf?id=${id}" target="_blank" class="btn btn-outline">📄 PDF</a>
+        <button class="btn btn-outline btn-sm" onclick="Modal.close(); navigate('ledger'); setTimeout(() => { const el = document.getElementById('led-account'); if(el){ el.value='${tx.debit_party_id}'; loadLedger(); } }, 100)">
+          📖 ${escHtml(tx.debit_party_name)} Ledger
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="Modal.close(); navigate('ledger'); setTimeout(() => { const el = document.getElementById('led-account'); if(el){ el.value='${tx.credit_party_id}'; loadLedger(); } }, 100)">
+          📖 ${escHtml(tx.credit_party_name)} Ledger
+        </button>
         ${tx.status === 'Pending Verification' && APP.isOperator()
           ? `<button class="btn btn-success" onclick="Modal.close(); verifyTransaction(${id})">✓ Verify</button>`
           : ''}
@@ -482,4 +481,18 @@ function exportTransactions(format) {
     date_to:   document.getElementById('tx-f-to')?.value     || ''
   });
   window.open(`/api/export/transactions/${format}${q}`, '_blank');
+}
+
+function setTxDatePreset(preset) {
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = today.slice(0, 8) + '01';
+  const fromEl = document.getElementById('tx-f-from');
+  const toEl   = document.getElementById('tx-f-to');
+  if (!fromEl || !toEl) return;
+  if (preset === 'today') {
+    fromEl.value = today; toEl.value = today;
+  } else if (preset === 'month') {
+    fromEl.value = monthStart; toEl.value = today;
+  }
+  loadTransactions(1);
 }

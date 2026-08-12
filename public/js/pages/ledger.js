@@ -8,13 +8,14 @@ async function renderLedger() {
   const monthStart = today.slice(0, 8) + '01';
 
   page.innerHTML = `
-    <h2 style="font-size:1.2rem;font-weight:700;color:#1e3a5f;margin-bottom:1rem">Ledger Report</h2>
+    <div class="page-header">
+      <h2>📖 Ledger Report</h2>
+    </div>
 
     <!-- ── Toolbar ─────────────────────────────────────── -->
     <div class="card ledger-toolbar-card">
       <div class="ledger-toolbar">
         <div class="ledger-toolbar-left">
-          <input type="text" id="led-filename" placeholder="Enter export file name" style="width:160px" />
           <button class="btn btn-outline btn-sm" onclick="exportLedger('pdf')">📄 PDF</button>
           <button class="btn btn-outline btn-sm" onclick="exportLedger('excel')">📊 CSV</button>
           <button class="btn btn-entry-reset" onclick="resetLedger()" title="Reset">↺</button>
@@ -83,7 +84,6 @@ function resetLedger() {
   const accEl = document.getElementById('led-account'); if (accEl) accEl.value = '';
   const frEl  = document.getElementById('led-from');    if (frEl)  frEl.value  = monthStart;
   const toEl  = document.getElementById('led-to');      if (toEl)  toEl.value  = today;
-  const fnEl  = document.getElementById('led-filename');if (fnEl)  fnEl.value  = '';
   document.getElementById('led-total-balance').textContent = '—';
   document.getElementById('ledger-table-wrap').innerHTML = `
     <div class="empty-state"><div class="empty-icon">📖</div><p>Select an account and click "Load".</p></div>`;
@@ -91,7 +91,7 @@ function resetLedger() {
 
 async function loadLedger() {
   const accountId = document.getElementById('led-account')?.value;
-  if (!accountId) { toast('Please select an account first.', 'error'); return; }
+  if (!accountId) return;
 
   const wrap = document.getElementById('ledger-table-wrap');
   wrap.innerHTML = `<div class="loading"><span class="spinner"></span> Loading...</div>`;
@@ -208,7 +208,9 @@ function renderLedgerTable(rows, totals) {
             return `
               <tr id="ledger-row-${r.id}" class="${r.is_locked ? 'led-locked-row' : ''}">
                 <td style="color:#1e3a5f;font-size:0.8rem">
-                  <a href="#" onclick="return false" style="color:#1e3a5f;text-decoration:none">${r.transaction_id || r.id}</a>
+                  ${r.transaction_id
+                    ? `<a href="#" onclick="viewTransaction(${r.transaction_id});return false" style="color:#1e3a5f;text-decoration:underline;cursor:pointer">${r.transaction_id}</a>`
+                    : `<span style="color:#9ca3af">${r.id}</span>`}
                 </td>
                 <td style="white-space:nowrap">${fmtDate(r.entry_date)}</td>
                 <td>${escHtml(r.particulars) || 'Transaction'}</td>
@@ -227,9 +229,7 @@ function renderLedgerTable(rows, totals) {
         <tfoot>
           <tr class="led-total-row">
             <td colspan="3" style="text-align:right;font-weight:700">Total :</td>
-            <td class="led-narration-col" style="display:${narDisplay};text-align:right;font-weight:700;color:#6b7280">
-              ${totalBrok ? fmtAmt(totalBrok) : ''}
-            </td>
+            <td class="led-narration-col" style="display:${narDisplay}"></td>
             <td style="text-align:right;font-weight:700;color:#6b7280">${totalBrok ? fmtAmt(totalBrok) : ''}</td>
             <td style="text-align:right;font-weight:700;color:#2e7d32">${fmtAmt(totalCr)}</td>
             <td style="text-align:right;font-weight:700;color:#c62828">${fmtAmt(totalDr)}</td>

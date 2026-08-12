@@ -7,7 +7,7 @@ const router = express.Router();
 // GET /api/transactions
 router.get('/', requireLogin, async (req, res) => {
   try {
-    const { account, debit, credit, amount, city, date_from, date_to, status, page = 1, limit = 50 } = req.query;
+    const { account, debit, credit, amount, city, search, date_from, date_to, status, page = 1, limit = 50 } = req.query;
     let sql = `
       SELECT t.*,
         da.account_name AS debit_party_name,
@@ -35,6 +35,11 @@ router.get('/', requireLogin, async (req, res) => {
     }
     if (date_from) { sql += ` AND t.transaction_date >= ${add(date_from)}`; }
     if (date_to)   { sql += ` AND t.transaction_date <= ${add(date_to)}`; }
+    if (search) {
+      const like = `%${search}%`;
+      const p1 = add(like); const p2 = add(like); const p3 = add(like); const p4 = add(like);
+      sql += ` AND (t.voucher_number ILIKE ${p1} OR da.account_name ILIKE ${p2} OR ca.account_name ILIKE ${p3} OR t.transaction_city ILIKE ${p4})`;
+    }
 
     sql += ` ORDER BY t.transaction_date DESC, t.id DESC`;
 

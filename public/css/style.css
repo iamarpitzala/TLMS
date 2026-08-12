@@ -223,6 +223,7 @@ tfoot td { background: #f8fafc; font-weight: 700; border-top: 2px solid #e5e7eb;
 .badge-admin    { background: #f3e5f5; color: #6a1b9a; }
 .badge-operator { background: #e3f2fd; color: #1565c0; }
 .badge-viewer   { background: #f1f5f9; color: #475569; }
+.badge-warning  { background: #fffbeb; color: #92400e; }
 /* Ledger entry type badges */
 .badge-debit       { background: #fdecea; color: #c62828; font-weight: 700; }
 .badge-credit      { background: #e8f5e9; color: #2e7d32; font-weight: 700; }
@@ -352,7 +353,6 @@ tfoot td { background: #f8fafc; font-weight: 700; border-top: 2px solid #e5e7eb;
   border-bottom: 1px solid rgba(255,255,255,0.15);
   padding: 0.6rem 0.9rem;
 }
-.tb-table thead tr:second-child th,
 .tb-table thead tr + tr th {
   background: #2c4f7c;
   color: #e8f0fe;

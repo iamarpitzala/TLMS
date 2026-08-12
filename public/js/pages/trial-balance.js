@@ -21,6 +21,8 @@ async function renderTrialBalance() {
       </div>
       <button class="btn btn-primary" onclick="loadTrialBalance()">🔍 Search</button>
       <button class="btn btn-outline" onclick="clearTbFilters()">All Time</button>
+      <button class="btn btn-outline btn-sm" onclick="setTbPreset('today')">Today</button>
+      <button class="btn btn-outline btn-sm" onclick="setTbPreset('month')">This Month</button>
     </div>
 
     <div id="tb-summary" class="stats-grid" style="display:none"></div>
@@ -220,7 +222,7 @@ function renderTbEntriesTable(entries, accountId, canVerify, isAdmin) {
             // Lock / unlock button
             let lockBtn = '';
             if (!e.is_locked && canVerify) {
-              lockBtn = `<button class="btn btn-success btn-xs" onclick="verifyTbEntry(${e.id}, ${accountId})">✓ Verify</button>`;
+              lockBtn = `<button class="btn btn-success btn-xs" onclick="verifyTbEntry(${e.id}, ${accountId})">🔒 Lock</button>`;
             } else if (e.is_locked && isAdmin) {
               lockBtn = `<button class="btn btn-warning btn-xs" onclick="unlockTbEntry(${e.id}, ${accountId})">🔓 Unlock</button>`;
             } else if (e.is_locked) {
@@ -308,4 +310,17 @@ function tbAmtWithBreakdown(entry) {
     <div style="font-size:0.73rem;font-weight:400;color:#6b7280;margin-top:1px">
       ${fmtAmt(base)}&thinsp;<span style="color:${commColor}">${sign}&thinsp;${fmtAmt(comm)}</span>
     </div>`;
+}
+
+function setTbPreset(preset) {
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = today.slice(0, 8) + '01';
+  if (preset === 'today') {
+    document.getElementById('tb-from').value = today;
+    document.getElementById('tb-to').value = today;
+  } else if (preset === 'month') {
+    document.getElementById('tb-from').value = monthStart;
+    document.getElementById('tb-to').value = today;
+  }
+  loadTrialBalance();
 }

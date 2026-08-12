@@ -33,9 +33,26 @@ const API = {
 function toast(msg, type = 'info', duration = 3500) {
   const el = document.createElement('div');
   el.className = `toast toast-${type}`;
-  el.textContent = msg;
+  el.style.display = 'flex';
+  el.style.alignItems = 'center';
+  el.style.justifyContent = 'space-between';
+  el.style.gap = '0.5rem';
+
+  const text = document.createElement('span');
+  text.textContent = msg;
+
+  const close = document.createElement('button');
+  close.textContent = '×';
+  close.style.cssText = 'background:none;border:none;color:inherit;font-size:1.1rem;cursor:pointer;padding:0;line-height:1;opacity:0.8;flex-shrink:0';
+  close.addEventListener('click', () => el.remove());
+
+  el.appendChild(text);
+  el.appendChild(close);
   document.getElementById('toast-container').appendChild(el);
-  setTimeout(() => el.remove(), duration);
+
+  const timer = setTimeout(() => el.remove(), duration);
+  el.addEventListener('mouseenter', () => clearTimeout(timer));
+  el.addEventListener('mouseleave', () => setTimeout(() => el.remove(), 1500));
 }
 
 // ── App state ─────────────────────────────────────────────────────────────
