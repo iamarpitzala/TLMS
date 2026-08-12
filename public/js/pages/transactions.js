@@ -37,12 +37,8 @@ async function renderTransactions() {
           <input type="number" id="te-amount" placeholder="e.g. 100 = 1,00,000" min="0" step="0.001" />
         </div>
         <div class="tx-entry-field tx-entry-field--sm">
-          <label>D.Rate %</label>
-          <input type="number" id="te-debit-rate" value="0" min="0" max="100" step="0.01" />
-        </div>
-        <div class="tx-entry-field tx-entry-field--sm">
           <label>D.Comm</label>
-          <input type="text" id="te-debit-comm" value="0.000" readonly class="tx-comm-readonly" />
+          <input type="number" id="te-debit-comm" min="0" step="1" placeholder="0" />
         </div>
         <div class="tx-entry-field tx-entry-field--wide">
           <label>Credit Party <span class="req">*</span></label>
@@ -52,12 +48,8 @@ async function renderTransactions() {
           </select>
         </div>
         <div class="tx-entry-field tx-entry-field--sm">
-          <label>C.Rate %</label>
-          <input type="number" id="te-credit-rate" value="0" min="0" max="100" step="0.01" />
-        </div>
-        <div class="tx-entry-field tx-entry-field--sm">
           <label>C.Comm</label>
-          <input type="text" id="te-credit-comm" value="0.000" readonly class="tx-comm-readonly" />
+          <input type="number" id="te-credit-comm" min="0" step="1" placeholder="0" />
         </div>
         <div class="tx-entry-field">
           <label>City</label>
@@ -114,11 +106,6 @@ async function renderTransactions() {
     </div>
   `;
 
-  // Wire commission auto-calc
-  ['te-amount','te-debit-rate','te-credit-rate'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', updateInlineComm);
-  });
-
   loadTransactions(1);
 }
 
@@ -129,26 +116,14 @@ function setTxTab(status, btn) {
   loadTransactions(1);
 }
 
-function updateInlineComm() {
-  const amt   = parseFloat(document.getElementById('te-amount')?.value)      || 0;
-  const dRate = parseFloat(document.getElementById('te-debit-rate')?.value)  || 0;
-  const cRate = parseFloat(document.getElementById('te-credit-rate')?.value) || 0;
-  const dEl = document.getElementById('te-debit-comm');
-  const cEl = document.getElementById('te-credit-comm');
-  // Display commission in full rupee value (×1000) so the operator sees the real commission amount
-  if (dEl) dEl.value = ((amt * dRate / 100) * 1000).toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-  if (cEl) cEl.value = ((amt * cRate / 100) * 1000).toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-}
-
 function resetInlineForm() {
   const today = new Date().toISOString().slice(0, 10);
   ['te-token','te-city','te-remarks'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   ['te-debit','te-credit'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const amt = document.getElementById('te-amount'); if (amt) amt.value = '';
-  const dr  = document.getElementById('te-debit-rate');  if (dr)  dr.value  = '0';
-  const cr  = document.getElementById('te-credit-rate'); if (cr)  cr.value  = '0';
+  const dc  = document.getElementById('te-debit-comm');  if (dc)  dc.value  = '';
+  const cc  = document.getElementById('te-credit-comm'); if (cc)  cc.value  = '';
   const date = document.getElementById('te-date'); if (date) date.value = today;
-  updateInlineComm();
   const errEl = document.getElementById('te-error'); if (errEl) errEl.style.display = 'none';
 }
 
@@ -161,9 +136,9 @@ async function submitInlineTransaction() {
     token_details:      document.getElementById('te-token').value.trim(),
     amount:             document.getElementById('te-amount').value,
     debit_party_id:     document.getElementById('te-debit').value,
-    debit_rate:         document.getElementById('te-debit-rate').value,
+    debit_commission:   document.getElementById('te-debit-comm').value,
     credit_party_id:    document.getElementById('te-credit').value,
-    credit_rate:        document.getElementById('te-credit-rate').value,
+    credit_commission:  document.getElementById('te-credit-comm').value,
     transaction_city:   document.getElementById('te-city').value.trim(),
     remarks:            document.getElementById('te-remarks').value.trim(),
   };
@@ -321,11 +296,9 @@ async function viewTransaction(id) {
           ${txDetailField('Amount', fmtAmt(tx.amount))}
           ${txDetailField('Wallet City', tx.wallet_city)}
           ${txDetailField('Debit Party', tx.debit_party_name)}
-          ${txDetailField('Debit Rate', (tx.debit_rate || 0) + '%')}
           ${txDetailField('Debit Commission', fmtAmt(tx.debit_commission))}
           ${txDetailField('Credit Party', tx.credit_party_name)}
           ${txDetailField('Credit Wallet City', tx.credit_wallet_city)}
-          ${txDetailField('Credit Rate', (tx.credit_rate || 0) + '%')}
           ${txDetailField('Credit Commission', fmtAmt(tx.credit_commission))}
           ${txDetailField('Remarks', tx.remarks)}
           ${txDetailField('Message', tx.message)}
@@ -374,10 +347,6 @@ async function editTransaction(txId, onSuccess = null) {
       <button class="btn btn-primary" onclick="submitEditTransaction(${txId})">💾 Save Changes</button>
     `
   });
-  ['tx-amount','tx-debit-rate','tx-credit-rate'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', updateCommissionDisplays);
-  });
-  updateCommissionDisplays();
   // Store callback so submitEditTransaction can call it after save
   editTransaction._onSuccess = onSuccess;
 }
@@ -392,12 +361,12 @@ async function submitEditTransaction(txId) {
     amount: document.getElementById('tx-amount').value,
     wallet_city: document.getElementById('tx-wallet-city').value.trim(),
     debit_party_id: document.getElementById('tx-debit-party').value,
-    debit_rate: document.getElementById('tx-debit-rate').value,
+    debit_commission: document.getElementById('tx-debit-comm').value,
     remarks: document.getElementById('tx-remarks').value.trim(),
     message: document.getElementById('tx-message').value.trim(),
     credit_wallet_city: document.getElementById('tx-credit-wallet-city').value.trim(),
     credit_party_id: document.getElementById('tx-credit-party').value,
-    credit_rate: document.getElementById('tx-credit-rate').value
+    credit_commission: document.getElementById('tx-credit-comm').value
   };
   if (!data.amount || parseFloat(data.amount) <= 0) { errEl.textContent = 'Amount required.'; errEl.style.display = 'block'; return; }
   if (!data.debit_party_id || !data.credit_party_id) { errEl.textContent = 'Both parties required.'; errEl.style.display = 'block'; return; }
@@ -450,27 +419,17 @@ function buildTransactionForm(tx = null) {
       <div class="section-label">Debit Party</div>
       <div class="form-grid">
         <div class="field-group"><label class="required">Debit Party</label><select id="tx-debit-party"><option value="">-- Select --</option>${APP.accountOptions(v('debit_party_id'))}</select></div>
-        <div class="field-group"><label>Debit Rate (%)</label><input type="number" id="tx-debit-rate" value="${v('debit_rate',0)}" step="0.01" min="0" max="100" /><div id="debit-comm-display" class="commission-display" style="display:none"></div></div>
+        <div class="field-group"><label>Debit Commission</label><input type="number" id="tx-debit-comm" value="${v('debit_commission') ? parseFloat(v('debit_commission',0)) * 1000 : ''}" step="1" min="0" placeholder="0" /></div>
       </div>
       <hr class="divider"/>
       <div class="section-label">Credit Party</div>
       <div class="form-grid">
         <div class="field-group"><label class="required">Credit Party</label><select id="tx-credit-party"><option value="">-- Select --</option>${APP.accountOptions(v('credit_party_id'))}</select></div>
         <div class="field-group"><label>Credit Wallet City</label><input type="text" id="tx-credit-wallet-city" value="${escHtml(v('credit_wallet_city'))}" placeholder="Credit wallet city" /></div>
-        <div class="field-group"><label>Credit Rate (%)</label><input type="number" id="tx-credit-rate" value="${v('credit_rate',0)}" step="0.01" min="0" max="100" /><div id="credit-comm-display" class="commission-display" style="display:none"></div></div>
+        <div class="field-group"><label>Credit Commission</label><input type="number" id="tx-credit-comm" value="${v('credit_commission') ? parseFloat(v('credit_commission',0)) * 1000 : ''}" step="1" min="0" placeholder="0" /></div>
       </div>
       <div id="tx-form-error" class="alert alert-error" style="display:none"></div>
     </form>`;
-}
-
-function updateCommissionDisplays() {
-  const amount = parseFloat(document.getElementById('tx-amount')?.value) || 0;
-  const dRate  = parseFloat(document.getElementById('tx-debit-rate')?.value) || 0;
-  const cRate  = parseFloat(document.getElementById('tx-credit-rate')?.value) || 0;
-  const dEl = document.getElementById('debit-comm-display');
-  const cEl = document.getElementById('credit-comm-display');
-  if (dEl) { dEl.style.display = dRate > 0 ? 'inline-block' : 'none'; dEl.textContent = `Commission: ${((amount*dRate/100)*1000).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`; }
-  if (cEl) { cEl.style.display = cRate > 0 ? 'inline-block' : 'none'; cEl.textContent = `Commission: ${((amount*cRate/100)*1000).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}`; }
 }
 
 function exportTransactions(format) {

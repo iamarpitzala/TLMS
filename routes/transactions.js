@@ -90,18 +90,16 @@ router.post('/', requireOperator, async (req, res) => {
   try {
     const {
       transaction_date, transaction_city, token_details, amount,
-      wallet_city, debit_party_id, debit_rate, remarks, message,
-      credit_wallet_city, credit_party_id, credit_rate
+      wallet_city, debit_party_id, debit_commission, remarks, message,
+      credit_wallet_city, credit_party_id, credit_commission
     } = req.body;
 
     if (!amount || isNaN(parseFloat(amount))) return res.status(400).json({ error: 'Amount is required' });
     if (!debit_party_id || !credit_party_id) return res.status(400).json({ error: 'Debit and Credit Party are required' });
 
     const amt   = parseFloat(amount);
-    const dRate = parseFloat(debit_rate)  || 0;
-    const cRate = parseFloat(credit_rate) || 0;
-    const dComm = parseFloat((amt * dRate / 100).toFixed(2));
-    const cComm = parseFloat((amt * cRate / 100).toFixed(2));
+    const dComm = parseFloat((parseFloat(debit_commission || 0) / 1000).toFixed(4));
+    const cComm = parseFloat((parseFloat(credit_commission || 0) / 1000).toFixed(4));
     const txDate = transaction_date || istDate();
 
     const dAcc = (await pool.query('SELECT * FROM accounts WHERE id=$1 AND is_active=1', [debit_party_id])).rows[0];
@@ -122,8 +120,8 @@ router.post('/', requireOperator, async (req, res) => {
       ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'Pending Verification',$16,$17)
       RETURNING *
     `, [voucherNumber, txDate, transaction_city||null, token_details||null, amt,
-        wallet_city||null, debit_party_id, dRate, dComm,
-        remarks||null, message||null, credit_wallet_city||null, credit_party_id, cRate, cComm,
+        wallet_city||null, debit_party_id, 0, dComm,
+        remarks||null, message||null, credit_wallet_city||null, credit_party_id, 0, cComm,
         req.session.user.id, now]);
     await client.query('COMMIT');
 
@@ -135,11 +133,9 @@ router.post('/', requireOperator, async (req, res) => {
       amount:            amt,
       wallet_city:       wallet_city       || null,
       debit_party:       dAcc.account_name,
-      debit_rate:        dRate,
       debit_commission:  dComm,
       credit_party:      cAcc.account_name,
       credit_wallet_city:credit_wallet_city|| null,
-      credit_rate:       cRate,
       credit_commission: cComm,
       remarks:           remarks           || null,
       message:           message           || null,
@@ -164,18 +160,16 @@ router.patch('/:id', requireOperator, async (req, res) => {
 
     const {
       transaction_date, transaction_city, token_details, amount,
-      wallet_city, debit_party_id, debit_rate, remarks, message,
-      credit_wallet_city, credit_party_id, credit_rate
+      wallet_city, debit_party_id, debit_commission, remarks, message,
+      credit_wallet_city, credit_party_id, credit_commission
     } = req.body;
 
     if (!amount || isNaN(parseFloat(amount))) return res.status(400).json({ error: 'Amount is required' });
     if (!debit_party_id || !credit_party_id) return res.status(400).json({ error: 'Debit and Credit Party are required' });
 
     const amt   = parseFloat(amount);
-    const dRate = parseFloat(debit_rate)  || 0;
-    const cRate = parseFloat(credit_rate) || 0;
-    const dComm = parseFloat((amt * dRate / 100).toFixed(2));
-    const cComm = parseFloat((amt * cRate / 100).toFixed(2));
+    const dComm = parseFloat((parseFloat(debit_commission || 0) / 1000).toFixed(4));
+    const cComm = parseFloat((parseFloat(credit_commission || 0) / 1000).toFixed(4));
     const txDate = transaction_date || tx.transaction_date;
 
     const dAcc = (await pool.query('SELECT * FROM accounts WHERE id=$1 AND is_active=1', [debit_party_id])).rows[0];
@@ -199,8 +193,8 @@ router.patch('/:id', requireOperator, async (req, res) => {
           credit_rate=$13, credit_commission=$14
         WHERE id=$15 RETURNING *
       `, [txDate, transaction_city||null, token_details||null, amt,
-          wallet_city||null, debit_party_id, dRate, dComm,
-          remarks||null, message||null, credit_wallet_city||null, credit_party_id, cRate, cComm, tx.id]);
+          wallet_city||null, debit_party_id, 0, dComm,
+          remarks||null, message||null, credit_wallet_city||null, credit_party_id, 0, cComm, tx.id]);
 
       // If already Verified, keep ledger entries in sync with updated values
       if (tx.status === 'Verified') {
@@ -236,10 +230,8 @@ router.patch('/:id', requireOperator, async (req, res) => {
           amount:             tx.amount,
           wallet_city:        tx.wallet_city,
           debit_party:        oldDAcc?.account_name || tx.debit_party_id,
-          debit_rate:         tx.debit_rate,
           debit_commission:   tx.debit_commission,
           credit_party:       oldCAcc?.account_name || tx.credit_party_id,
-          credit_rate:        tx.credit_rate,
           credit_commission:  tx.credit_commission,
           credit_wallet_city: tx.credit_wallet_city,
           remarks:            tx.remarks,
@@ -252,10 +244,8 @@ router.patch('/:id', requireOperator, async (req, res) => {
           amount:             amt,
           wallet_city:        wallet_city        || null,
           debit_party:        dAcc.account_name,
-          debit_rate:         dRate,
           debit_commission:   dComm,
           credit_party:       cAcc.account_name,
-          credit_rate:        cRate,
           credit_commission:  cComm,
           credit_wallet_city: credit_wallet_city || null,
           remarks:            remarks            || null,
