@@ -34,7 +34,7 @@ async function renderTransactions() {
         </div>
         <div class="tx-entry-field">
           <label>Amount <span class="req">*</span> <span style="font-weight:400;color:#9ca3af;font-size:0.72rem">(in '000s)</span></label>
-          <input type="number" id="te-amount" placeholder="e.g. 100 = 1,00,000" min="0" step="0.001" />
+          <input type="number" id="te-amount" placeholder="e.g. 100 = 1,00,000" min="0" step="0.001" oninput="autoFillInlineComm()" />
         </div>
         <div class="tx-entry-field tx-entry-field--sm">
           <label>D.Comm</label>
@@ -125,6 +125,24 @@ function resetInlineForm() {
   const cc  = document.getElementById('te-credit-comm'); if (cc)  cc.value  = '';
   const date = document.getElementById('te-date'); if (date) date.value = today;
   const errEl = document.getElementById('te-error'); if (errEl) errEl.style.display = 'none';
+}
+
+function autoFillInlineComm() {
+  const amt = parseFloat(document.getElementById('te-amount')?.value) || 0;
+  const comm = amt > 0 ? amt : '';
+  const dc = document.getElementById('te-debit-comm');
+  const cc = document.getElementById('te-credit-comm');
+  if (dc) dc.value = comm;
+  if (cc) cc.value = comm;
+}
+
+function autoFillEditComm() {
+  const amt = parseFloat(document.getElementById('tx-amount')?.value) || 0;
+  const comm = amt > 0 ? amt : '';
+  const dc = document.getElementById('tx-debit-comm');
+  const cc = document.getElementById('tx-credit-comm');
+  if (dc) dc.value = comm;
+  if (cc) cc.value = comm;
 }
 
 async function submitInlineTransaction() {
@@ -409,7 +427,7 @@ function buildTransactionForm(tx = null) {
       <div class="form-grid-3">
         <div class="field-group"><label>Date</label><input type="date" id="tx-date" value="${v('transaction_date', today)}" /></div>
         <div class="field-group"><label>Token</label><input type="text" id="tx-token" value="${escHtml(v('token_details'))}" placeholder="Token / ref" /></div>
-        <div class="field-group"><label class="required">Amount <span style="font-weight:400;color:#9ca3af;font-size:0.72rem">(in '000s)</span></label><input type="number" id="tx-amount" value="${v('amount','')}" placeholder="e.g. 100 = 1,00,000" step="0.001" min="0" /></div>
+        <div class="field-group"><label class="required">Amount <span style="font-weight:400;color:#9ca3af;font-size:0.72rem">(in '000s)</span></label><input type="number" id="tx-amount" value="${v('amount','')}" placeholder="e.g. 100 = 1,00,000" step="0.001" min="0" oninput="autoFillEditComm()" /></div>
         <div class="field-group"><label>City</label><input type="text" id="tx-city" value="${escHtml(v('transaction_city'))}" placeholder="City" /></div>
         <div class="field-group"><label>Wallet City</label><input type="text" id="tx-wallet-city" value="${escHtml(v('wallet_city'))}" placeholder="Wallet city" /></div>
         <div class="field-group"><label>Remarks</label><input type="text" id="tx-remarks" value="${escHtml(v('remarks'))}" placeholder="Remarks..." /></div>
