@@ -16,12 +16,12 @@ async function renderUsers() {
 
   page.innerHTML = `
     <div class="page-header">
-      <h2>🔐 Users</h2>
-      <button class="btn btn-primary" onclick="openAddUserModal()">＋ Add User</button>
+      <h2>Users</h2>
+      <button class="btn btn-primary" onclick="openAddUserModal()">+ Add User</button>
     </div>
-    <div class="card">
+    <div class="card" style="padding:0">
       <div id="users-table-wrap">
-        <div class="loading"><span class="spinner"></span> Loading...</div>
+        <div class="loading"><span class="spinner"></span> Loading…</div>
       </div>
     </div>
   `;
@@ -32,13 +32,12 @@ async function renderUsers() {
 async function loadUsers() {
   const wrap = document.getElementById('users-table-wrap');
   if (!wrap) return;
-  wrap.innerHTML = `<div class="loading"><span class="spinner"></span> Loading...</div>`;
-
+  wrap.innerHTML = `<div class="loading"><span class="spinner"></span> Loading…</div>`;
   try {
     const users = await API.get('/api/users');
     renderUsersTable(users);
   } catch (e) {
-    wrap.innerHTML = `<div class="alert alert-error">${escHtml(e.message)}</div>`;
+    wrap.innerHTML = `<div class="alert alert-error" style="margin:1rem">${escHtml(e.message)}</div>`;
   }
 }
 
@@ -61,45 +60,51 @@ function renderUsersTable(users) {
             <th>#</th>
             <th>Username</th>
             <th>Role</th>
-            <th>Status</th>
-            <th>Created At</th>
-            <th>Actions</th>
+            <th style="text-align:center">Status</th>
+            <th>Created</th>
+            <th style="text-align:center">Actions</th>
           </tr>
         </thead>
         <tbody>
           ${users.map(u => `
-            <tr style="${u.is_active === 0 ? 'opacity:0.6;background:#fafafa' : ''}">
+            <tr style="${u.is_active === 0 ? 'opacity:0.55' : ''}">
               <td style="color:#9ca3af;font-size:0.8rem">${u.id}</td>
               <td>
                 <strong>${escHtml(u.username)}</strong>
-                ${u.id === currentUserId ? '<span class="badge badge-viewer" style="margin-left:6px;font-size:0.7rem">You</span>' : ''}
+                ${u.id === currentUserId ? '<span class="badge badge-viewer" style="margin-left:6px;font-size:0.68rem">You</span>' : ''}
               </td>
               <td>${ROLE_BADGE[u.role] || escHtml(u.role)}</td>
-              <td>
+              <td style="text-align:center">
                 ${u.is_active !== 0
                   ? '<span class="badge badge-active">Active</span>'
                   : '<span class="badge badge-inactive">Deactivated</span>'}
               </td>
-              <td style="font-size:0.82rem;color:#6b7280">${u.created_at ? u.created_at.slice(0,16) : '-'}</td>
-              <td>
-                <div class="btn-group">
-                  ${u.is_active !== 0 ? `
-                    <button class="btn btn-outline btn-xs" onclick="openChangePasswordModal(${u.id}, '${escHtml(u.username)}')">
-                      🔑 Password
-                    </button>
-                    <button class="btn btn-outline btn-xs" onclick="openChangeRoleModal(${u.id}, '${escHtml(u.username)}', '${u.role}')">
-                      🎭 Role
-                    </button>
-                    ${u.id !== currentUserId ? `
-                      <button class="btn btn-warning btn-xs" onclick="deactivateUser(${u.id}, '${escHtml(u.username)}')">
-                        🚫 Deactivate
+              <td style="font-size:0.82rem;color:#9ca3af">${u.created_at ? u.created_at.slice(0,10) : '—'}</td>
+              <td style="text-align:center">
+                <div class="action-menu-wrap">
+                  <button class="btn-action-menu" onclick="toggleActionMenu(this)">···</button>
+                  <div class="action-dropdown">
+                    ${u.is_active !== 0 ? `
+                      <button class="action-menu-item" onclick="openChangePasswordModal(${u.id}, '${escHtml(u.username)}')">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                        Change Password
                       </button>
-                    ` : ''}
-                  ` : `
-                    <button class="btn btn-success btn-xs" onclick="reactivateUser(${u.id}, '${escHtml(u.username)}')">
-                      ✅ Reactivate
-                    </button>
-                  `}
+                      <button class="action-menu-item" onclick="openChangeRoleModal(${u.id}, '${escHtml(u.username)}', '${u.role}')">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                        Change Role
+                      </button>
+                      ${u.id !== currentUserId ? `
+                        <hr class="action-menu-sep"/>
+                        <button class="action-menu-item danger" onclick="deactivateUser(${u.id}, '${escHtml(u.username)}')">
+                          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg>
+                          Deactivate
+                        </button>` : ''}
+                    ` : `
+                      <button class="action-menu-item" onclick="reactivateUser(${u.id}, '${escHtml(u.username)}')">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                        Reactivate
+                      </button>`}
+                  </div>
                 </div>
               </td>
             </tr>
@@ -107,14 +112,14 @@ function renderUsersTable(users) {
         </tbody>
       </table>
     </div>
-    <div style="margin-top:0.5rem;font-size:0.82rem;color:#6b7280">${users.length} user(s)</div>
+    <div style="padding:0.5rem 1rem;font-size:0.8rem;color:#9ca3af;border-top:1px solid #f5f6fa">${users.length} user(s)</div>
   `;
 }
 
 // ── Add User ──────────────────────────────────────────────────────────────
 function openAddUserModal() {
   Modal.open({
-    title: '＋ Add New User',
+    title: 'Add New User',
     body: `
       <div class="field-group">
         <label class="required">Username</label>
@@ -140,7 +145,7 @@ function openAddUserModal() {
     `,
     footer: `
       <button class="btn btn-outline" onclick="Modal.close()">Cancel</button>
-      <button class="btn btn-primary" onclick="submitAddUser()">＋ Create User</button>
+      <button class="btn btn-primary" onclick="submitAddUser()">Create User</button>
     `
   });
 }
@@ -148,36 +153,31 @@ function openAddUserModal() {
 async function submitAddUser() {
   const errEl  = document.getElementById('nu-error');
   errEl.style.display = 'none';
-
   const username = document.getElementById('nu-username').value.trim();
   const role     = document.getElementById('nu-role').value;
   const password = document.getElementById('nu-password').value;
   const confirm  = document.getElementById('nu-confirm').value;
-
-  if (!username) { errEl.textContent = 'Username is required.'; errEl.style.display = 'block'; return; }
-  if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
-  if (password !== confirm) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; return; }
-
+  if (!username) { errEl.textContent = 'Username is required.'; errEl.style.display = 'flex'; return; }
+  if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'flex'; return; }
+  if (password !== confirm) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'flex'; return; }
   const btn = Modal.footer.querySelector('.btn-primary');
-  if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
-
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
   try {
     await API.post('/api/users', { username, password, role });
-    toast(`User "${username}" created successfully`, 'success');
+    toast(`User "${username}" created`, 'success');
     Modal.close();
     loadUsers();
   } catch (e) {
-    errEl.textContent = e.message;
-    errEl.style.display = 'block';
+    errEl.textContent = e.message; errEl.style.display = 'flex';
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '＋ Create User'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Create User'; }
   }
 }
 
 // ── Change Password ───────────────────────────────────────────────────────
 function openChangePasswordModal(userId, username) {
   Modal.open({
-    title: `🔑 Change Password — ${username}`,
+    title: `Change Password — ${username}`,
     body: `
       <div class="field-group">
         <label class="required">New Password</label>
@@ -191,7 +191,7 @@ function openChangePasswordModal(userId, username) {
     `,
     footer: `
       <button class="btn btn-outline" onclick="Modal.close()">Cancel</button>
-      <button class="btn btn-primary" onclick="submitChangePassword(${userId})">💾 Update Password</button>
+      <button class="btn btn-primary" onclick="submitChangePassword(${userId})">Update Password</button>
     `
   });
 }
@@ -199,34 +199,29 @@ function openChangePasswordModal(userId, username) {
 async function submitChangePassword(userId) {
   const errEl   = document.getElementById('cp-error');
   errEl.style.display = 'none';
-
   const password = document.getElementById('cp-password').value;
   const confirm  = document.getElementById('cp-confirm').value;
-
-  if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
-  if (password !== confirm) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; return; }
-
+  if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'flex'; return; }
+  if (password !== confirm) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'flex'; return; }
   const btn = Modal.footer.querySelector('.btn-primary');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
-
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
     await API.patch(`/api/users/${userId}/password`, { password });
-    toast('Password updated successfully', 'success');
+    toast('Password updated', 'success');
     Modal.close();
   } catch (e) {
-    errEl.textContent = e.message;
-    errEl.style.display = 'block';
+    errEl.textContent = e.message; errEl.style.display = 'flex';
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Update Password'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Update Password'; }
   }
 }
 
 // ── Change Role ───────────────────────────────────────────────────────────
 function openChangeRoleModal(userId, username, currentRole) {
   Modal.open({
-    title: `🎭 Change Role — ${username}`,
+    title: `Change Role — ${username}`,
     body: `
-      <p style="margin-bottom:1rem;color:#6b7280;font-size:0.9rem">
+      <p style="margin-bottom:1rem;font-size:0.875rem;color:#6b7280">
         Current role: ${ROLE_BADGE[currentRole] || currentRole}
       </p>
       <div class="field-group">
@@ -241,7 +236,7 @@ function openChangeRoleModal(userId, username, currentRole) {
     `,
     footer: `
       <button class="btn btn-outline" onclick="Modal.close()">Cancel</button>
-      <button class="btn btn-primary" onclick="submitChangeRole(${userId})">💾 Update Role</button>
+      <button class="btn btn-primary" onclick="submitChangeRole(${userId})">Update Role</button>
     `
   });
 }
@@ -249,44 +244,36 @@ function openChangeRoleModal(userId, username, currentRole) {
 async function submitChangeRole(userId) {
   const errEl = document.getElementById('cr-error');
   errEl.style.display = 'none';
-
   const role = document.getElementById('cr-role').value;
-
   const btn = Modal.footer.querySelector('.btn-primary');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
-
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
     await API.patch(`/api/users/${userId}/role`, { role });
-    toast('Role updated successfully', 'success');
+    toast('Role updated', 'success');
     Modal.close();
     loadUsers();
   } catch (e) {
-    errEl.textContent = e.message;
-    errEl.style.display = 'block';
+    errEl.textContent = e.message; errEl.style.display = 'flex';
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Update Role'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Update Role'; }
   }
 }
 
-// ── Deactivate / Reactivate User ─────────────────────────────────────────
+// ── Deactivate / Reactivate ───────────────────────────────────────────────
 async function deactivateUser(userId, username) {
-  if (!confirm(`Deactivate "${username}"?\n\nThey will not be able to log in until reactivated.`)) return;
+  if (!confirm(`Deactivate "${username}"?\nThey will not be able to log in until reactivated.`)) return;
   try {
     await API.delete(`/api/users/${userId}`);
     toast(`User "${username}" deactivated`, 'success');
     loadUsers();
-  } catch (e) {
-    toast(e.message, 'error');
-  }
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function reactivateUser(userId, username) {
-  if (!confirm(`Reactivate "${username}"? They will be able to log in again.`)) return;
+  if (!confirm(`Reactivate "${username}"?`)) return;
   try {
     await API.patch(`/api/users/${userId}/reactivate`, {});
     toast(`User "${username}" reactivated`, 'success');
     loadUsers();
-  } catch (e) {
-    toast(e.message, 'error');
-  }
+  } catch (e) { toast(e.message, 'error'); }
 }

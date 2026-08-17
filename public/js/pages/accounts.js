@@ -5,30 +5,30 @@ async function renderAccounts() {
   const page = document.getElementById('page-accounts');
   page.innerHTML = `
     <div class="page-header">
-      <h2>👥 Accounts</h2>
-      ${APP.isOperator() ? `<button class="btn btn-primary" onclick="openAccountModal()">＋ New Account</button>` : ''}
+      <h2>Accounts</h2>
+      ${APP.isOperator() ? `<button class="btn btn-primary" onclick="openAccountModal()">+ New Account</button>` : ''}
     </div>
 
     <div class="filters-bar">
       <div class="filter-field">
         <label>Search</label>
-        <input type="text" id="acc-search" placeholder="Name, mobile, group..." style="width:220px" />
+        <input type="text" id="acc-search" placeholder="Name, mobile, group…" style="width:220px" />
       </div>
       <div class="filter-field">
         <label>Status</label>
-        <select id="acc-status">
+        <select id="acc-status" style="width:130px">
           <option value="">All</option>
           <option value="true">Active</option>
           <option value="false">Inactive</option>
         </select>
       </div>
-      <button class="btn btn-primary" onclick="loadAccounts()">🔍 Search</button>
+      <button class="btn btn-primary" onclick="loadAccounts()">Search</button>
       <button class="btn btn-outline" onclick="clearAccountFilters()">Clear</button>
     </div>
 
-    <div class="card">
+    <div class="card" style="padding:0">
       <div id="accounts-table-wrap">
-        <div class="loading"><span class="spinner"></span> Loading...</div>
+        <div class="loading"><span class="spinner"></span> Loading…</div>
       </div>
     </div>
   `;
@@ -42,14 +42,14 @@ async function loadAccounts() {
   const wrap = document.getElementById('accounts-table-wrap');
   if (!wrap) return;
 
-  wrap.innerHTML = `<div class="loading"><span class="spinner"></span> Loading...</div>`;
+  wrap.innerHTML = `<div class="loading"><span class="spinner"></span> Loading…</div>`;
 
   try {
     const q = API.buildQuery({ search, active });
     accountsData = await API.get('/api/accounts' + q);
     renderAccountsTable(accountsData);
   } catch (e) {
-    wrap.innerHTML = `<div class="alert alert-error">${escHtml(e.message)}</div>`;
+    wrap.innerHTML = `<div class="alert alert-error" style="margin:1rem">${escHtml(e.message)}</div>`;
   }
 }
 
@@ -62,6 +62,8 @@ function renderAccountsTable(data) {
     return;
   }
 
+  const canEdit = APP.isOperator();
+
   wrap.innerHTML = `
     <div class="table-wrap">
       <table>
@@ -70,35 +72,44 @@ function renderAccountsTable(data) {
             <th>#</th>
             <th>Account Name</th>
             <th>Mobile</th>
-            <th>Opening Amt</th>
+            <th style="text-align:right">Opening Amt</th>
             <th>Balance Date</th>
             <th>Group</th>
             <th>Parent</th>
-            <th>Status</th>
-            ${APP.isOperator() ? '<th>Actions</th>' : ''}
+            <th style="text-align:center">Status</th>
+            ${canEdit ? '<th style="text-align:center">Actions</th>' : ''}
           </tr>
         </thead>
         <tbody>
           ${data.map(a => `
             <tr>
-              <td>${a.id}</td>
+              <td style="color:#9ca3af;font-size:0.8rem">${a.id}</td>
               <td><strong>${escHtml(a.account_name)}</strong></td>
-              <td>${escHtml(a.mobile_number) || '-'}</td>
-              <td>${fmtAmt(a.opening_amount)}</td>
-              <td>${fmtDate(a.balance_date)}</td>
-              <td>${escHtml(a.group_name) || '-'}</td>
-              <td>${escHtml(a.parent_name) || escHtml(a.parent_account) || '-'}</td>
-              <td>${a.is_active
-                ? '<span class="badge badge-active">Active</span>'
-                : '<span class="badge badge-inactive">Inactive</span>'}</td>
-              ${APP.isOperator() ? `
-              <td>
-                <div class="btn-group">
-                  <button class="btn btn-outline btn-xs" onclick="openAccountModal(${a.id})">✏️ Edit</button>
-                  <button class="btn btn-${a.is_active ? 'warning' : 'success'} btn-xs"
-                    onclick="toggleAccountStatus(${a.id}, ${a.is_active})">
-                    ${a.is_active ? '🚫 Disable' : '✅ Enable'}
-                  </button>
+              <td style="color:#6b7280">${escHtml(a.mobile_number) || '—'}</td>
+              <td style="text-align:right">${fmtAmt(a.opening_amount)}</td>
+              <td style="color:#6b7280">${fmtDate(a.balance_date)}</td>
+              <td style="color:#6b7280">${escHtml(a.group_name) || '—'}</td>
+              <td style="color:#6b7280">${escHtml(a.parent_name) || escHtml(a.parent_account) || '—'}</td>
+              <td style="text-align:center">
+                ${a.is_active
+                  ? '<span class="badge badge-active">Active</span>'
+                  : '<span class="badge badge-inactive">Inactive</span>'}
+              </td>
+              ${canEdit ? `
+              <td style="text-align:center">
+                <div class="action-menu-wrap">
+                  <button class="btn-action-menu" onclick="toggleActionMenu(this)" title="Actions">···</button>
+                  <div class="action-dropdown">
+                    <button class="action-menu-item" onclick="openAccountModal(${a.id})">
+                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                      Edit
+                    </button>
+                    <button class="action-menu-item ${a.is_active ? 'danger' : ''}" onclick="toggleAccountStatus(${a.id}, ${a.is_active})">
+                      ${a.is_active
+                        ? `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg> Disable`
+                        : `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg> Enable`}
+                    </button>
+                  </div>
                 </div>
               </td>` : ''}
             </tr>
@@ -106,7 +117,7 @@ function renderAccountsTable(data) {
         </tbody>
       </table>
     </div>
-    <div style="margin-top:0.5rem;font-size:0.82rem;color:#6b7280">${data.length} account(s) found</div>
+    <div style="padding:0.6rem 1rem;font-size:0.8rem;color:#9ca3af;border-top:1px solid #f5f6fa">${data.length} account(s)</div>
   `;
 }
 
@@ -141,7 +152,7 @@ async function openAccountModal(id = null) {
           </div>
           <div class="field-group">
             <label>Opening Amount <span style="font-weight:400;color:#9ca3af;font-size:0.72rem">(in '000s)</span></label>
-            <input type="number" id="af-opening" value="${account?.opening_amount || 0}" step="0.001" placeholder="e.g. 100 = 1,00,000" />
+            <input type="number" id="af-opening" value="${account?.opening_amount || 0}" step="0.001" />
           </div>
           <div class="field-group">
             <label>Balance Date</label>
@@ -154,7 +165,7 @@ async function openAccountModal(id = null) {
           <div class="field-group">
             <label>Parent Account</label>
             <select id="af-parent">
-              <option value="">-- None --</option>
+              <option value="">— None —</option>
               ${allAccounts.map(a =>
                 `<option value="${a.id}" ${String(account?.parent_account) === String(a.id) ? 'selected' : ''}>${escHtml(a.account_name)}</option>`
               ).join('')}
@@ -176,34 +187,34 @@ async function openAccountModal(id = null) {
 async function submitAccountForm(id) {
   const errEl = document.getElementById('acc-form-error');
   const data = {
-    account_name: document.getElementById('af-name').value.trim(),
+    account_name:  document.getElementById('af-name').value.trim(),
     mobile_number: document.getElementById('af-mobile').value.trim(),
     opening_amount: document.getElementById('af-opening').value,
-    balance_date: document.getElementById('af-baldate').value,
-    group_name: document.getElementById('af-group').value.trim(),
+    balance_date:  document.getElementById('af-baldate').value,
+    group_name:    document.getElementById('af-group').value.trim(),
     parent_account: document.getElementById('af-parent').value || null
   };
 
   if (!data.account_name) {
     errEl.textContent = 'Account Name is mandatory.';
-    errEl.style.display = 'block';
+    errEl.style.display = 'flex';
     return;
   }
 
   try {
     if (id) {
       await API.put('/api/accounts/' + id, data);
-      toast('Account updated successfully', 'success');
+      toast('Account updated', 'success');
     } else {
       await API.post('/api/accounts', data);
-      toast('Account created successfully', 'success');
+      toast('Account created', 'success');
     }
     Modal.close();
     await APP.loadAccounts();
     loadAccounts();
   } catch (e) {
     errEl.textContent = e.message;
-    errEl.style.display = 'block';
+    errEl.style.display = 'flex';
   }
 }
 

@@ -1,7 +1,7 @@
 // ── Dashboard page ────────────────────────────────────────────────────────
 async function renderDashboard() {
   const page = document.getElementById('page-dashboard');
-  page.innerHTML = `<div class="loading"><span class="spinner"></span> Loading...</div>`;
+  page.innerHTML = `<div class="loading"><span class="spinner"></span> Loading…</div>`;
 
   try {
     const today = new Date().toISOString().slice(0, 10);
@@ -11,13 +11,12 @@ async function renderDashboard() {
     ]);
 
     const { summary } = tb;
-    const totalAccounts = accounts.length;
     const activeAccounts = accounts.filter(a => a.is_active).length;
 
     page.innerHTML = `
       <div class="page-header">
-        <h2>🏠 Dashboard</h2>
-        <span style="font-size:0.85rem;color:#6b7280">Today: ${today}</span>
+        <h2>Dashboard</h2>
+        <span style="font-size:0.82rem;color:#9ca3af">${fmtDate(today)}</span>
       </div>
 
       <div class="stats-grid">
@@ -44,33 +43,35 @@ async function renderDashboard() {
       </div>
 
       <div class="card">
-        <div class="card-title">Quick Trial Balance (All Time)</div>
+        <div class="card-title">Quick Trial Balance — All Time</div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Account Name</th>
-                <th>Opening Credit</th>
-                <th>Opening Debit</th>
-                <th>Closing Credit</th>
-                <th>Closing Debit</th>
-                <th>Status</th>
+                <th style="text-align:right">Opening Credit</th>
+                <th style="text-align:right">Opening Debit</th>
+                <th style="text-align:right">Closing Credit</th>
+                <th style="text-align:right">Closing Debit</th>
+                <th style="text-align:center">Status</th>
               </tr>
             </thead>
             <tbody>
-              ${tb.data.length === 0 ? `<tr><td colspan="6" class="empty-state"><div class="empty-icon">📊</div><p>No accounts yet. <a href="#" onclick="navigate('accounts')">Create an account</a> to get started.</p></td></tr>` :
-                tb.data.map(r => `
+              ${tb.data.length === 0
+                ? `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📊</div><p>No accounts yet. <a href="#" onclick="navigate('accounts')">Create an account</a> to get started.</p></div></td></tr>`
+                : tb.data.map(r => `
                   <tr>
                     <td><strong>${escHtml(r.account_name)}</strong></td>
-                    <td>${fmtAmt(r.opening_credit)}</td>
-                    <td>${fmtAmt(r.opening_debit)}</td>
-                    <td>${fmtAmt(r.closing_credit)}</td>
-                    <td>${fmtAmt(r.closing_debit)}</td>
-                    <td>${r.is_verified
-                      ? '<span class="badge badge-verified">✓ Verified</span>'
-                      : '<span class="badge badge-pending">Pending</span>'}</td>
-                  </tr>
-                `).join('')}
+                    <td style="text-align:right">${fmtAmt(r.opening_credit)}</td>
+                    <td style="text-align:right">${fmtAmt(r.opening_debit)}</td>
+                    <td style="text-align:right">${fmtAmt(r.closing_credit)}</td>
+                    <td style="text-align:right">${fmtAmt(r.closing_debit)}</td>
+                    <td style="text-align:center">
+                      ${r.is_verified
+                        ? '<span class="badge badge-verified">Verified</span>'
+                        : '<span class="badge badge-pending">Pending</span>'}
+                    </td>
+                  </tr>`).join('')}
             </tbody>
           </table>
         </div>
