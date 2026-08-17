@@ -361,7 +361,7 @@ function renderTxTable({ data, total, page, limit }) {
             return `
             <tr>
               <td><input type="checkbox" style="width:14px;height:14px;accent-color:#4b9ef5" /></td>
-              <td style="white-space:nowrap;color:#374151">${fmtDate(tx.transaction_date)}</td>
+              <td style="white-space:nowrap;color:#374151;cursor:${canAct ? 'pointer' : 'default'}" ${canAct ? `onclick="inlineDateClick(this,${tx.id},'${tx.transaction_date}')" title="Click to edit date"` : ''}>${fmtDate(tx.transaction_date)}</td>
               <td style="color:#6b7280;font-size:0.82rem">${escHtml(tx.token_details) || '—'}</td>
               <td style="text-align:right;font-weight:600">${fmtAmt(tx.amount)}</td>
               <td>
@@ -696,4 +696,58 @@ function setTxDatePreset(preset) {
   if (preset === 'today') { fromEl.value = today; toEl.value = today; }
   else if (preset === 'month') { fromEl.value = monthStart; toEl.value = today; }
   loadTransactions(1);
+}
+
+// ── Inline date edit ──────────────────────────────────────────────────────
+// Clicking the date cell replaces it with a date input; committing saves via PATCH.
+function inlineDateClick(td, txId, currentDate) {
+  if (!APP.isOperator()) return;
+  if (td.querySelector('input')) return; // already editing
+
+  const original = currentDate; // YYYY-MM-DD
+  td.innerHTML = `<input type="date" value="${original}" style="font-size:0.85rem;padding:2px 4px;border:1px solid #4b9ef5;border-radius:4px;outline:none" />`;
+  const input = td.querySelector('input');
+  input.focus();
+
+  async function commit() {
+    const newDate = input.value;
+    if (!newDate || newDate === original) {
+      td.innerHTML = `<span style="white-space:nowrap;color:#374151;cursor:pointer" onclick="inlineDateClick(this.parentElement,${txId},'${original}')">${fmtDate(original)}</span>`;
+      return;
+    }
+    try {
+      // Fetch full transaction, merge new date, PATCH back
+      const tx = await API.get('/api/transactions/' + txId);
+      await API.patch('/api/transactions/' + txId, {
+        transaction_date:   newDate,
+        transaction_city:   tx.transaction_city   || '',
+        token_details:      tx.token_details       || '',
+        amount:             tx.amount,
+        wallet_city:        tx.wallet_city         || '',
+        debit_party_id:     tx.debit_party_id,
+        debit_rate:         tx.debit_rate          || 0,
+        debit_commission:   parseFloat(((parseFloat(tx.debit_commission)  || 0) * 1000).toFixed(4)),
+        remarks:            tx.remarks             || '',
+        message:            tx.message             || '',
+        credit_wallet_city: tx.credit_wallet_city  || '',
+        credit_party_id:    tx.credit_party_id,
+        credit_rate:        tx.credit_rate         || 0,
+        credit_commission:  parseFloat(((parseFloat(tx.credit_commission) || 0) * 1000).toFixed(4)),
+      });
+      toast('Date updated', 'success');
+      td.innerHTML = `<span style="white-space:nowrap;color:#374151;cursor:pointer" onclick="inlineDateClick(this.parentElement,${txId},'${newDate}')">${fmtDate(newDate)}</span>`;
+    } catch (e) {
+      toast(e.message, 'error');
+      td.innerHTML = `<span style="white-space:nowrap;color:#374151;cursor:pointer" onclick="inlineDateClick(this.parentElement,${txId},'${original}')">${fmtDate(original)}</span>`;
+    }
+  }
+
+  input.addEventListener('change', commit);
+  input.addEventListener('blur',   commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Escape') {
+      td.innerHTML = `<span style="white-space:nowrap;color:#374151;cursor:pointer" onclick="inlineDateClick(this.parentElement,${txId},'${original}')">${fmtDate(original)}</span>`;
+    }
+  });
 }
