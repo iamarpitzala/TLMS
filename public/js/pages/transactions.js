@@ -417,11 +417,22 @@ function renderTxTable({ data, total, page, limit }) {
                       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
                       Approve
                     </button>` : ''}
+                    ${!isPending && APP.isAdmin() ? `
+                    <button class="action-menu-item" onclick="unapproveTransaction(${tx.id})">
+                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg>
+                      Un-approve
+                    </button>` : ''}
                     <hr class="action-menu-sep"/>
                     <a href="/api/export/transaction/pdf?id=${tx.id}" target="_blank" class="action-menu-item">
                       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
                       PDF
                     </a>
+                    ${APP.isAdmin() ? `
+                    <hr class="action-menu-sep"/>
+                    <button class="action-menu-item danger" onclick="deleteTransaction(${tx.id}, '${escHtml(tx.voucher_number)}')">
+                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                      Delete
+                    </button>` : ''}
                     ` : ''}
                   </div>
                 </div>
@@ -582,6 +593,24 @@ async function verifyTransaction(txId) {
   try {
     const updated = await API.patch(`/api/transactions/${txId}/verify`, {});
     toast(`${updated.voucher_number} approved`, 'success');
+    loadTransactions(txPage);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function unapproveTransaction(txId) {
+  if (!confirm('Un-approve this transaction? Ledger entries will be removed and status reverted to Pending.')) return;
+  try {
+    await API.patch(`/api/transactions/${txId}/unapprove`, {});
+    toast('Transaction reverted to Pending', 'success');
+    loadTransactions(txPage);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteTransaction(txId, voucherNumber) {
+  if (!confirm(`Delete ${voucherNumber}? This cannot be undone.`)) return;
+  try {
+    await API.delete(`/api/transactions/${txId}`);
+    toast(`${voucherNumber} deleted`, 'success');
     loadTransactions(txPage);
   } catch (e) { toast(e.message, 'error'); }
 }

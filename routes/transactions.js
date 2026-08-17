@@ -154,6 +154,71 @@ router.post('/', requireOperator, async (req, res) => {
   }
 });
 
+// PATCH /api/transactions/:id/unapprove — admin only, reverts Verified → Pending Verification
+router.patch('/:id/unapprove', requireOperator, async (req, res) => {
+  if (req.session.user?.role !== 'administrator') {
+    return res.status(403).json({ error: 'Admin only' });
+  }
+  const client = await pool.connect();
+  try {
+    const tx = (await pool.query('SELECT * FROM transactions WHERE id=$1', [req.params.id])).rows[0];
+    if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+    if (tx.status !== 'Verified') return res.status(400).json({ error: 'Transaction is not verified' });
+
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE transactions SET status='Pending Verification', verified_by=NULL, verified_at=NULL WHERE id=$1`,
+      [tx.id]
+    );
+    await client.query(`DELETE FROM ledger_entries WHERE transaction_id=$1`, [tx.id]);
+    await client.query('COMMIT');
+
+    audit(req, 'update', 'transactions', tx.id,
+      { status: 'Verified' },
+      { status: 'Pending Verification', note: 'Un-approved by admin' }
+    );
+
+    res.json({ message: 'Transaction reverted to Pending Verification' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// DELETE /api/transactions/:id — admin only, hard delete (pending only)
+router.delete('/:id', requireOperator, async (req, res) => {
+  if (req.session.user?.role !== 'administrator') {
+    return res.status(403).json({ error: 'Admin only' });
+  }
+  const client = await pool.connect();
+  try {
+    const tx = (await pool.query('SELECT * FROM transactions WHERE id=$1', [req.params.id])).rows[0];
+    if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+    if (tx.status === 'Verified') {
+      return res.status(400).json({ error: 'Cannot delete a verified transaction. Un-approve it first.' });
+    }
+
+    await client.query('BEGIN');
+    await client.query(`DELETE FROM ledger_entries WHERE transaction_id=$1`, [tx.id]);
+    await client.query(`DELETE FROM transactions WHERE id=$1`, [tx.id]);
+    await client.query('COMMIT');
+
+    audit(req, 'update', 'transactions', tx.id,
+      { voucher_number: tx.voucher_number, status: tx.status, amount: tx.amount },
+      { deleted: true }
+    );
+
+    res.json({ message: 'Transaction deleted' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 // PATCH /api/transactions/:id — edit (any status, admin/operator only)
 router.patch('/:id', requireOperator, async (req, res) => {
   try {
