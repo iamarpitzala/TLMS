@@ -1,77 +1,65 @@
-// Daily Postgres backup script
-// Dumps the database using pg_dump and uploads to Cloudflare R2 (S3-compatible)
-// Requires: @aws-sdk/client-s3 (npm install @aws-sdk/client-s3)
+// Postgres backup — dumps via pg_dump and uploads to Cloudflare R2
 //
 // Required env vars:
 //   DATABASE_URL          — postgres connection string
 //   R2_ACCOUNT_ID         — Cloudflare account ID
 //   R2_ACCESS_KEY_ID      — R2 access key
 //   R2_SECRET_ACCESS_KEY  — R2 secret key
-//   R2_BUCKET             — R2 bucket name
-//   R2_ENDPOINT           — https://<account_id>.r2.cloudflarestorage.com  (optional, built from R2_ACCOUNT_ID)
+//   R2_BUCKET             — R2 bucket name (default: tlms-backups)
+//   BACKUP_RETAIN_DAYS    — number of daily dumps to keep (default: 30)
+
+'use strict';
 
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
-const { execSync } = require('child_process');
+const { execSync }  = require('child_process');
 const { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const fs   = require('fs');
 const path = require('path');
 
-// ─── Config ──────────────────────────────────────────────────────────────────
-const DATABASE_URL       = process.env.DATABASE_URL;
-const R2_ACCOUNT_ID      = process.env.R2_ACCOUNT_ID;
-const R2_ACCESS_KEY_ID   = process.env.R2_ACCESS_KEY_ID;
-const R2_SECRET_KEY      = process.env.R2_SECRET_ACCESS_KEY;
-const R2_BUCKET          = process.env.R2_BUCKET || 'tlms-backups';
-const R2_ENDPOINT        = process.env.R2_ENDPOINT || `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-const RETAIN_DAYS        = parseInt(process.env.BACKUP_RETAIN_DAYS || '30');
+async function runBackup() {
+  const DATABASE_URL     = process.env.DATABASE_URL;
+  const R2_ACCOUNT_ID    = process.env.R2_ACCOUNT_ID;
+  const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+  const R2_SECRET_KEY    = process.env.R2_SECRET_ACCESS_KEY;
+  const R2_BUCKET        = process.env.R2_BUCKET_NAME || 'tlms-backups';
+  const R2_ENDPOINT      = process.env.R2_ENDPOINT || `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  const RETAIN_DAYS      = 3;
 
-if (!DATABASE_URL) { console.error('DATABASE_URL is not set'); process.exit(1); }
-if (!R2_ACCESS_KEY_ID || !R2_SECRET_KEY) { console.error('R2 credentials not set'); process.exit(1); }
+  if (!DATABASE_URL)                    throw new Error('DATABASE_URL is not set');
+  if (!R2_ACCESS_KEY_ID || !R2_SECRET_KEY) throw new Error('R2 credentials not set');
+  if (!R2_ACCOUNT_ID && !process.env.R2_ENDPOINT) throw new Error('R2_ACCOUNT_ID or R2_ENDPOINT is not set');
 
-// ─── Step 1: pg_dump to a temp file ──────────────────────────────────────────
-const timestamp  = new Date().toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
-const dumpFile   = path.join('/tmp', `tlms_${timestamp}.sql`);
-const objectKey  = `tlms_${timestamp}.sql`;
+  // ── Step 1: pg_dump ──────────────────────────────────────────────────────
+  const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+  const dumpFile  = path.join('/tmp', `tlms_${timestamp}.sql`);
+  const objectKey = `tlms_${timestamp}.sql`;
 
-console.log(`[backup] Dumping database to ${dumpFile}...`);
-try {
+  console.log(`[backup] Dumping database to ${dumpFile}...`);
   execSync(`pg_dump "${DATABASE_URL}" -F p -f "${dumpFile}"`, { stdio: 'inherit' });
   console.log('[backup] pg_dump complete.');
-} catch (err) {
-  console.error('[backup] pg_dump failed:', err.message);
-  process.exit(1);
-}
 
-// ─── Step 2: Upload to R2 ────────────────────────────────────────────────────
-const s3 = new S3Client({
-  region: 'auto',
-  endpoint: R2_ENDPOINT,
-  credentials: {
-    accessKeyId:     R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_KEY,
-  },
-});
+  const s3 = new S3Client({
+    region: 'auto',
+    endpoint: R2_ENDPOINT,
+    credentials: { accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_KEY },
+  });
 
-(async () => {
+  // ── Step 2: upload ───────────────────────────────────────────────────────
   try {
     console.log(`[backup] Uploading ${objectKey} to R2 bucket "${R2_BUCKET}"...`);
-    const fileStream = fs.createReadStream(dumpFile);
     await s3.send(new PutObjectCommand({
       Bucket:      R2_BUCKET,
       Key:         objectKey,
-      Body:        fileStream,
+      Body:        fs.createReadStream(dumpFile),
       ContentType: 'application/sql',
     }));
     console.log('[backup] Upload complete.');
-  } catch (err) {
-    console.error('[backup] Upload failed:', err.message);
-    process.exit(1);
   } finally {
-    fs.unlinkSync(dumpFile); // clean up temp file
+    if (fs.existsSync(dumpFile)) fs.unlinkSync(dumpFile);
   }
 
-  // ─── Step 3: Prune old backups (keep last RETAIN_DAYS) ─────────────────────
+  // ── Step 3: prune old backups ────────────────────────────────────────────
   try {
     const list = await s3.send(new ListObjectsV2Command({ Bucket: R2_BUCKET }));
     const objects = (list.Contents || [])
@@ -87,6 +75,17 @@ const s3 = new S3Client({
     }
     console.log(`[backup] Done. ${Math.min(objects.length, RETAIN_DAYS)} backup(s) retained.`);
   } catch (err) {
+    // pruning failure is non-fatal
     console.warn('[backup] Pruning failed (non-fatal):', err.message);
   }
-})();
+}
+
+// Allow direct execution: node scripts/backup.js
+if (require.main === module) {
+  runBackup().catch(err => {
+    console.error('[backup] Failed:', err.message);
+    process.exit(1);
+  });
+}
+
+module.exports = { runBackup };

@@ -1,10 +1,12 @@
 require('dotenv').config();
 
-const express = require('express');
-const session = require('express-session');
-const pgSession = require('connect-pg-simple')(session);
-const path = require('path');
+const express    = require('express');
+const session    = require('express-session');
+const pgSession  = require('connect-pg-simple')(session);
+const cron       = require('node-cron');
+const path       = require('path');
 const { pool, init } = require('./db');
+const { runBackup }  = require('./scripts/backup');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -62,6 +64,14 @@ init().then(() => {
   app.listen(PORT, () => {
     console.log(`TLMS running at http://localhost:${PORT} [${isProd ? 'production' : 'development'}]`);
   });
+
+  // ── Nightly backup at 2:00 AM IST (20:30 UTC) ──────────────────────────
+  cron.schedule('30 20 * * *', () => {
+    console.log('[backup] Scheduled backup starting...');
+    runBackup().catch(err => console.error('[backup] Scheduled backup failed:', err.message));
+  }, { timezone: 'UTC' });
+
+  console.log('[backup] Nightly backup scheduled at 02:00 IST (20:30 UTC).');
 }).catch(err => {
   console.error('Failed to initialise database:', err.message);
   process.exit(1);
