@@ -1,3 +1,22 @@
+// ── Mobile sidebar drawer ─────────────────────────────────────────────────
+function toggleMobileMenu() {
+  const sidebar  = document.getElementById('sidebar');
+  const overlay  = document.getElementById('sidebar-overlay');
+  const isOpen   = sidebar.classList.contains('open');
+  if (isOpen) {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('active');
+  } else {
+    sidebar.classList.add('open');
+    overlay.classList.add('active');
+  }
+}
+
+function closeMobileMenu() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('active');
+}
+
 // ── Utility functions ─────────────────────────────────────────────────────
 
 function toggleLoginPw(btn) {
@@ -115,6 +134,9 @@ async function navigate(pageName) {
   if (pageName === 'transactions' && APP.isViewer()) pageName = 'dashboard';
   if (pageName === 'audit'        && !APP.isAdmin()) pageName = 'dashboard';
   if (pageName === 'users'        && !APP.isAdmin()) pageName = 'dashboard';
+
+  // Close mobile drawer on navigation
+  closeMobileMenu();
 
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.toggle('active', item.dataset.page === pageName);

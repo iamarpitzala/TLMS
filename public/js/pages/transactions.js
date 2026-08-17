@@ -107,78 +107,91 @@ async function renderTransactions() {
     <div class="card tx-entry-card">
       <div class="tx-entry-row" id="tx-entry-row">
 
-        <div class="tx-entry-field tx-entry-field--sm">
-          <label>Date</label>
-          <input type="date" id="te-date" value="${today}" />
-        </div>
+        <!-- Top fields: date / token / amount -->
+        <div class="tx-entry-group tx-entry-group--top">
+          <div class="tx-entry-field tx-entry-field--sm">
+            <label>Date</label>
+            <input type="date" id="te-date" value="${today}" />
+          </div>
 
-        <div class="tx-entry-field tx-entry-field--sm">
-          <label>Token</label>
-          <input type="text" id="te-token" placeholder="Token / ref" />
-        </div>
+          <div class="tx-entry-field tx-entry-field--sm">
+            <label>Token</label>
+            <input type="text" id="te-token" placeholder="Token / ref" />
+          </div>
 
-        <div class="tx-entry-field">
-          <label>Amount <span class="req">*</span></label>
-          <input type="number" id="te-amount" placeholder="0" min="0" step="0.001"
-            oninput="onInlineAmountChange()" />
+          <div class="tx-entry-field">
+            <label>Amount <span class="req">*</span></label>
+            <input type="number" id="te-amount" placeholder="0" min="0" step="0.001"
+              oninput="onInlineAmountChange()" />
+          </div>
         </div>
 
         <!-- ── Debit side ── -->
-        <div class="tx-entry-field tx-entry-field--wide">
-          <label>Debit Party <span class="req">*</span></label>
-          <select id="te-debit">
-            <option value="">Select…</option>
-            ${APP.accountOptions()}
-          </select>
-        </div>
-
-        <div class="tx-entry-field tx-entry-field--xs">
-          <label>Rate %</label>
-          <input type="number" id="te-debit-rate" min="0" step="0.0001" placeholder="0.00"
-            oninput="onInlineRateChange('debit')" />
-        </div>
-
-        <div class="tx-entry-field tx-entry-field--xs">
-          <label>Commission</label>
-          <input type="number" id="te-debit-comm" min="0" step="0.001" placeholder="0"
-            oninput="onInlineCommChange('debit')" />
+        <div class="tx-entry-group tx-entry-group--party">
+          <div class="tx-entry-group-label">Debit</div>
+          <div class="tx-entry-group-fields">
+            <div class="tx-entry-field tx-entry-field--wide">
+              <label>Party <span class="req">*</span></label>
+              <select id="te-debit">
+                <option value="">Select…</option>
+                ${APP.accountOptions()}
+              </select>
+            </div>
+            <div class="tx-entry-field tx-entry-field--xs">
+              <label>Rate %</label>
+              <input type="number" id="te-debit-rate" min="0" step="0.0001" placeholder="0.00"
+                oninput="onInlineRateChange('debit')" />
+            </div>
+            <div class="tx-entry-field tx-entry-field--xs">
+              <label>Commission</label>
+              <input type="number" id="te-debit-comm" min="0" step="0.001" placeholder="0"
+                oninput="onInlineCommChange('debit')" />
+            </div>
+          </div>
         </div>
 
         <!-- ── Credit side ── -->
-        <div class="tx-entry-field tx-entry-field--wide">
-          <label>Credit Party <span class="req">*</span></label>
-          <select id="te-credit">
-            <option value="">Select…</option>
-            ${APP.accountOptions()}
-          </select>
+        <div class="tx-entry-group tx-entry-group--party">
+          <div class="tx-entry-group-label">Credit</div>
+          <div class="tx-entry-group-fields">
+            <div class="tx-entry-field tx-entry-field--wide">
+              <label>Party <span class="req">*</span></label>
+              <select id="te-credit">
+                <option value="">Select…</option>
+                ${APP.accountOptions()}
+              </select>
+            </div>
+            <div class="tx-entry-field tx-entry-field--xs">
+              <label>Rate %</label>
+              <input type="number" id="te-credit-rate" min="0" step="0.0001" placeholder="0.00"
+                oninput="onInlineRateChange('credit')" />
+            </div>
+            <div class="tx-entry-field tx-entry-field--xs">
+              <label>Commission</label>
+              <input type="number" id="te-credit-comm" min="0" step="0.001" placeholder="0"
+                oninput="onInlineCommChange('credit')" />
+            </div>
+          </div>
         </div>
 
-        <div class="tx-entry-field tx-entry-field--xs">
-          <label>Rate %</label>
-          <input type="number" id="te-credit-rate" min="0" step="0.0001" placeholder="0.00"
-            oninput="onInlineRateChange('credit')" />
+        <!-- Bottom fields: city / remarks / actions -->
+        <div class="tx-entry-group tx-entry-group--bottom">
+          <div class="tx-entry-field tx-entry-field--sm">
+            <label>City</label>
+            <input type="text" id="te-city" placeholder="City" />
+          </div>
+
+          <div class="tx-entry-field">
+            <label>Remarks</label>
+            <input type="text" id="te-remarks" placeholder="Remarks" />
+          </div>
+
+          <div class="tx-entry-actions">
+            <button class="btn-entry-submit" onclick="submitInlineTransaction()" title="Add Transaction">+</button>
+            <button class="btn-entry-reset" onclick="resetInlineForm()" title="Reset">↺</button>
+          </div>
         </div>
 
-        <div class="tx-entry-field tx-entry-field--xs">
-          <label>Commission</label>
-          <input type="number" id="te-credit-comm" min="0" step="0.001" placeholder="0"
-            oninput="onInlineCommChange('credit')" />
-        </div>
-
-        <div class="tx-entry-field tx-entry-field--sm">
-          <label>City</label>
-          <input type="text" id="te-city" placeholder="City" />
-        </div>
-
-        <div class="tx-entry-field">
-          <label>Remarks</label>
-          <input type="text" id="te-remarks" placeholder="Remarks" />
-        </div>
-
-        <div class="tx-entry-actions">
-          <button class="btn-entry-submit" onclick="submitInlineTransaction()" title="Add Transaction">+</button>
-          <button class="btn-entry-reset" onclick="resetInlineForm()" title="Reset">↺</button>
-        </div>
       </div>
       <div id="te-error" class="alert alert-error" style="display:none;margin-top:0.5rem"></div>
     </div>
@@ -188,21 +201,23 @@ async function renderTransactions() {
     <div class="card" style="padding:0.75rem 1.1rem">
       <div class="tx-toolbar">
         <div class="tx-toolbar-left">
-          <input type="text" id="tx-f-search" placeholder="Search token, party, city…" style="width:210px" oninput="loadTransactions(1)" />
+          <input type="text" id="tx-f-search" placeholder="Search…" style="width:210px" oninput="loadTransactions(1)" />
           <select id="tx-f-account" style="width:150px" onchange="loadTransactions(1)">
             <option value="">All Accounts</option>
             ${APP.accountOptions()}
           </select>
-          <input type="date" id="tx-f-from" style="width:135px" onchange="loadTransactions(1)" />
-          <span style="color:#d1d5db;font-size:0.85rem">–</span>
-          <input type="date" id="tx-f-to" style="width:135px" onchange="loadTransactions(1)" />
-          <button class="btn btn-outline btn-sm" onclick="clearTxFilters()">Clear</button>
-          <button class="btn btn-outline btn-sm" onclick="setTxDatePreset('today')">Today</button>
-          <button class="btn btn-outline btn-sm" onclick="setTxDatePreset('month')">Month</button>
-        </div>
-        <div class="tx-toolbar-right">
-          <button class="btn btn-outline btn-sm" onclick="exportTransactions('excel')">CSV</button>
-          <button class="btn btn-outline btn-sm" onclick="exportTransactions('pdf')">PDF</button>
+          <div class="tx-date-range">
+            <input type="date" id="tx-f-from" onchange="loadTransactions(1)" />
+            <span class="tx-date-sep">–</span>
+            <input type="date" id="tx-f-to" onchange="loadTransactions(1)" />
+          </div>
+          <div class="tx-toolbar-btns">
+            <button class="btn btn-outline btn-sm" onclick="clearTxFilters()">Clear</button>
+            <button class="btn btn-outline btn-sm" onclick="setTxDatePreset('today')">Today</button>
+            <button class="btn btn-outline btn-sm" onclick="setTxDatePreset('month')">Month</button>
+            <button class="btn btn-outline btn-sm" onclick="exportTransactions('excel')">CSV</button>
+            <button class="btn btn-outline btn-sm" onclick="exportTransactions('pdf')">PDF</button>
+          </div>
         </div>
       </div>
       <div class="tx-status-tabs">
@@ -337,7 +352,7 @@ function renderTxTable({ data, total, page, limit }) {
 
   wrap.innerHTML = `
     <div style="overflow-x:auto">
-      <table class="tx-list-table">
+      <table class="tx-list-table rwd-table">
         <thead>
           <tr>
             <th style="width:32px"></th>
@@ -345,11 +360,11 @@ function renderTxTable({ data, total, page, limit }) {
             <th>Token</th>
             <th style="text-align:right">Amount</th>
             <th>Debit</th>
-            <th style="text-align:right">Rate</th>
-            <th style="text-align:right">Commission</th>
+            <th style="text-align:right">D.Rate</th>
+            <th style="text-align:right">D.Comm</th>
             <th>Credit</th>
-            <th style="text-align:right">Rate</th>
-            <th style="text-align:right">Commission</th>
+            <th style="text-align:right">C.Rate</th>
+            <th style="text-align:right">C.Comm</th>
             <th>Remarks</th>
             <th style="text-align:center">Status</th>
             <th style="text-align:center">Actions</th>
@@ -360,31 +375,31 @@ function renderTxTable({ data, total, page, limit }) {
             const isPending = tx.status === 'Pending Verification';
             return `
             <tr>
-              <td><input type="checkbox" style="width:14px;height:14px;accent-color:#4b9ef5" /></td>
-              <td style="white-space:nowrap;color:#374151;cursor:${canAct ? 'pointer' : 'default'}" ${canAct ? `onclick="inlineDateClick(this,${tx.id},'${tx.transaction_date}')" title="Click to edit date"` : ''}>${fmtDate(tx.transaction_date)}</td>
-              <td style="color:#6b7280;font-size:0.82rem">${escHtml(tx.token_details) || '—'}</td>
-              <td style="text-align:right;font-weight:600">${fmtAmt(tx.amount)}</td>
-              <td>
+              <td class="td-check"><input type="checkbox" style="width:14px;height:14px;accent-color:#4b9ef5" /></td>
+              <td data-label="Date" style="white-space:nowrap;color:#374151;cursor:${canAct ? 'pointer' : 'default'}" ${canAct ? `onclick="inlineDateClick(this,${tx.id},'${tx.transaction_date}')" title="Click to edit date"` : ''}>${fmtDate(tx.transaction_date)}</td>
+              <td data-label="Token" style="color:#6b7280;font-size:0.82rem">${escHtml(tx.token_details) || '—'}</td>
+              <td data-label="Amount" style="text-align:right;font-weight:600">${fmtAmt(tx.amount)}</td>
+              <td data-label="Debit">
                 ${tx.debit_party_name
                   ? `<span class="party-chip"><span class="party-chip-badge">D</span>${escHtml(tx.debit_party_name)}</span>`
                   : '—'}
               </td>
-              <td style="text-align:right;color:#6b7280">${fmtRate(tx.debit_rate)}</td>
-              <td style="text-align:right;color:#c62828">${fmtAmt(tx.debit_commission)}</td>
-              <td>
+              <td data-label="D.Rate" style="text-align:right;color:#6b7280">${fmtRate(tx.debit_rate)}</td>
+              <td data-label="D.Comm" style="text-align:right;color:#c62828">${fmtAmt(tx.debit_commission)}</td>
+              <td data-label="Credit">
                 ${tx.credit_party_name
                   ? `<span class="party-chip credit"><span class="party-chip-badge">C</span>${escHtml(tx.credit_party_name)}</span>`
                   : '—'}
               </td>
-              <td style="text-align:right;color:#6b7280">${fmtRate(tx.credit_rate)}</td>
-              <td style="text-align:right;color:#2e7d32">${fmtAmt(tx.credit_commission)}</td>
-              <td style="color:#6b7280;font-size:0.82rem">${escHtml(tx.remarks) || '—'}</td>
-              <td style="text-align:center">
+              <td data-label="C.Rate" style="text-align:right;color:#6b7280">${fmtRate(tx.credit_rate)}</td>
+              <td data-label="C.Comm" style="text-align:right;color:#2e7d32">${fmtAmt(tx.credit_commission)}</td>
+              <td data-label="Remarks" style="color:#6b7280;font-size:0.82rem">${escHtml(tx.remarks) || '—'}</td>
+              <td data-label="Status" style="text-align:center">
                 <span class="badge ${isPending ? 'badge-pending' : 'badge-verified'}">
                   ${isPending ? 'pending' : 'approved'}
                 </span>
               </td>
-              <td style="text-align:center">
+              <td class="td-actions" style="text-align:center">
                 <div class="action-menu-wrap">
                   <button class="btn-action-menu" onclick="toggleActionMenu(this)" title="Actions">···</button>
                   <div class="action-dropdown">

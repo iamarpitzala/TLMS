@@ -54,7 +54,7 @@ function renderUsersTable(users) {
 
   wrap.innerHTML = `
     <div class="table-wrap">
-      <table>
+      <table class="rwd-table">
         <thead>
           <tr>
             <th>#</th>
@@ -68,19 +68,19 @@ function renderUsersTable(users) {
         <tbody>
           ${users.map(u => `
             <tr style="${u.is_active === 0 ? 'opacity:0.55' : ''}">
-              <td style="color:#9ca3af;font-size:0.8rem">${u.id}</td>
-              <td>
+              <td data-label="#" style="color:#9ca3af;font-size:0.8rem">${u.id}</td>
+              <td data-label="Username">
                 <strong>${escHtml(u.username)}</strong>
                 ${u.id === currentUserId ? '<span class="badge badge-viewer" style="margin-left:6px;font-size:0.68rem">You</span>' : ''}
               </td>
-              <td>${ROLE_BADGE[u.role] || escHtml(u.role)}</td>
-              <td style="text-align:center">
+              <td data-label="Role">${ROLE_BADGE[u.role] || escHtml(u.role)}</td>
+              <td data-label="Status" style="text-align:center">
                 ${u.is_active !== 0
                   ? '<span class="badge badge-active">Active</span>'
                   : '<span class="badge badge-inactive">Deactivated</span>'}
               </td>
-              <td style="font-size:0.82rem;color:#9ca3af">${u.created_at ? u.created_at.slice(0,10) : '—'}</td>
-              <td style="text-align:center">
+              <td data-label="Created" style="font-size:0.82rem;color:#9ca3af">${u.created_at ? u.created_at.slice(0,10) : '—'}</td>
+              <td class="td-actions" style="text-align:center">
                 <div class="action-menu-wrap">
                   <button class="btn-action-menu" onclick="toggleActionMenu(this)">···</button>
                   <div class="action-dropdown">

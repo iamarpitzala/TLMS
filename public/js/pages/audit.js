@@ -164,7 +164,7 @@ function filterAuditRows() {
 
   wrap.innerHTML = `
     <div class="table-wrap">
-      <table>
+      <table class="rwd-table">
         <thead>
           <tr>
             <th>#</th>
@@ -190,14 +190,14 @@ function filterAuditRows() {
             }
             return `
             <tr>
-              <td style="font-size:0.78rem;color:#9ca3af">${r.id}</td>
-              <td style="white-space:nowrap;font-size:0.82rem;color:#6b7280">${r.timestamp ? r.timestamp.slice(0,16).replace('T',' ') : '—'}</td>
-              <td><strong>${escHtml(r.actor_name) || '—'}</strong></td>
-              <td>${auditActionBadge(r.action)}</td>
-              <td style="font-size:0.82rem;color:#6b7280">${escHtml(r.table_name) || '—'}</td>
-              <td style="text-align:center;color:#6b7280">${r.record_id || '—'}</td>
-              <td style="font-size:0.79rem;color:#dc2626;max-width:200px">${beforeHtml}</td>
-              <td style="font-size:0.79rem;color:#16a34a;max-width:200px">${afterHtml}</td>
+              <td data-label="#" style="font-size:0.78rem;color:#9ca3af">${r.id}</td>
+              <td data-label="Timestamp" style="white-space:nowrap;font-size:0.82rem;color:#6b7280">${r.timestamp ? r.timestamp.slice(0,16).replace('T',' ') : '—'}</td>
+              <td data-label="Actor"><strong>${escHtml(r.actor_name) || '—'}</strong></td>
+              <td data-label="Action">${auditActionBadge(r.action)}</td>
+              <td data-label="Table" style="font-size:0.82rem;color:#6b7280">${escHtml(r.table_name) || '—'}</td>
+              <td data-label="Record ID" style="text-align:center;color:#6b7280">${r.record_id || '—'}</td>
+              <td data-label="Before" style="font-size:0.79rem;color:#dc2626;max-width:200px">${beforeHtml}</td>
+              <td data-label="After" style="font-size:0.79rem;color:#16a34a;max-width:200px">${afterHtml}</td>
             </tr>`;
           }).join('')}
         </tbody>

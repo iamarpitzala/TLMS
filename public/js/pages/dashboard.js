@@ -45,7 +45,7 @@ async function renderDashboard() {
       <div class="card">
         <div class="card-title">Quick Trial Balance — All Time</div>
         <div class="table-wrap">
-          <table>
+          <table class="rwd-table">
             <thead>
               <tr>
                 <th>Account Name</th>
@@ -61,12 +61,12 @@ async function renderDashboard() {
                 ? `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📊</div><p>No accounts yet. <a href="#" onclick="navigate('accounts')">Create an account</a> to get started.</p></div></td></tr>`
                 : tb.data.map(r => `
                   <tr>
-                    <td><strong>${escHtml(r.account_name)}</strong></td>
-                    <td style="text-align:right">${fmtAmt(r.opening_credit)}</td>
-                    <td style="text-align:right">${fmtAmt(r.opening_debit)}</td>
-                    <td style="text-align:right">${fmtAmt(r.closing_credit)}</td>
-                    <td style="text-align:right">${fmtAmt(r.closing_debit)}</td>
-                    <td style="text-align:center">
+                    <td data-label="Account"><strong>${escHtml(r.account_name)}</strong></td>
+                    <td data-label="Op.Credit" style="text-align:right">${fmtAmt(r.opening_credit)}</td>
+                    <td data-label="Op.Debit" style="text-align:right">${fmtAmt(r.opening_debit)}</td>
+                    <td data-label="Cl.Credit" style="text-align:right">${fmtAmt(r.closing_credit)}</td>
+                    <td data-label="Cl.Debit" style="text-align:right">${fmtAmt(r.closing_debit)}</td>
+                    <td data-label="Status" style="text-align:center">
                       ${r.is_verified
                         ? '<span class="badge badge-verified">Verified</span>'
                         : '<span class="badge badge-pending">Pending</span>'}

@@ -144,7 +144,7 @@ function renderLedgerTable(rows, totals) {
 
   wrap.innerHTML = `
     <div style="overflow-x:auto">
-      <table id="ledger-table" class="ledger-report-table">
+      <table id="ledger-table" class="ledger-report-table rwd-table">
         <thead>
           <tr>
             <th>Tran Id</th>
@@ -160,14 +160,14 @@ function renderLedgerTable(rows, totals) {
         </thead>
         <tbody>
           <tr class="led-opening-row">
-            <td></td><td></td>
-            <td><em>Opening Balance</em></td>
-            <td class="led-narration-col" style="display:${narDisplay}"><em>Opening Balance</em></td>
-            <td></td>
-            <td style="text-align:right;color:#16a34a">${opening >= 0 ? fmtAmt(opening) : ''}</td>
-            <td style="text-align:right;color:#dc2626">${opening < 0  ? fmtAmt(Math.abs(opening)) : ''}</td>
-            <td style="text-align:right;font-weight:600">${fmtAmt(Math.abs(opening))} ${opening >= 0 ? 'Cr' : 'Dr'}</td>
-            <td></td>
+            <td data-label="Tran Id"></td><td data-label="Date"></td>
+            <td data-label="Particular"><em>Opening Balance</em></td>
+            <td class="led-narration-col" data-label="Narration" style="display:${narDisplay}"><em>Opening Balance</em></td>
+            <td data-label="Brokerage"></td>
+            <td data-label="Cr Amount" style="text-align:right;color:#16a34a">${opening >= 0 ? fmtAmt(opening) : ''}</td>
+            <td data-label="Dr Amount" style="text-align:right;color:#dc2626">${opening < 0  ? fmtAmt(Math.abs(opening)) : ''}</td>
+            <td data-label="Balance" style="text-align:right;font-weight:600">${fmtAmt(Math.abs(opening))} ${opening >= 0 ? 'Cr' : 'Dr'}</td>
+            <td class="td-actions"></td>
           </tr>
           ${processedRows.map(r => {
             const balStr = `${fmtAmt(Math.abs(r.runningBal))} ${r.runningBal >= 0 ? 'Cr' : 'Dr'}`;
@@ -205,19 +205,19 @@ function renderLedgerTable(rows, totals) {
 
             return `
               <tr id="ledger-row-${r.id}" class="${r.is_locked ? 'led-locked-row' : ''}">
-                <td style="color:#4b9ef5;font-size:0.8rem">
+                <td data-label="Tran Id" style="color:#4b9ef5;font-size:0.8rem">
                   ${r.transaction_id
                     ? `<a href="#" onclick="viewTransaction(${r.transaction_id});return false" style="color:#4b9ef5;text-decoration:none">${r.transaction_id}</a>`
                     : `<span style="color:#9ca3af">${r.id}</span>`}
                 </td>
-                <td style="white-space:nowrap;color:#374151">${fmtDate(r.entry_date)}</td>
-                <td>${escHtml(r.particulars) || 'Transaction'}</td>
-                <td class="led-narration-col" style="display:${narDisplay};color:#9ca3af;font-size:0.82rem">${escHtml(r.message) || ''}</td>
-                <td style="text-align:right;color:#9ca3af">${r.brokerage ? fmtAmt(r.brokerage) : ''}</td>
-                <td style="text-align:right;color:#16a34a;font-weight:600">${r.isCredit ? renderAmtWithBreakdown(r, 'credit') : ''}</td>
-                <td style="text-align:right;color:#dc2626;font-weight:600">${r.isDebit  ? renderAmtWithBreakdown(r, 'debit')  : ''}</td>
-                <td style="text-align:right;font-weight:600;color:${balC}">${balStr}</td>
-                <td style="text-align:center">${actionBtn}</td>
+                <td data-label="Date" style="white-space:nowrap;color:#374151">${fmtDate(r.entry_date)}</td>
+                <td data-label="Particular">${escHtml(r.particulars) || 'Transaction'}</td>
+                <td class="led-narration-col" data-label="Narration" style="display:${narDisplay};color:#9ca3af;font-size:0.82rem">${escHtml(r.message) || ''}</td>
+                <td data-label="Brokerage" style="text-align:right;color:#9ca3af">${r.brokerage ? fmtAmt(r.brokerage) : ''}</td>
+                <td data-label="Cr Amount" style="text-align:right;color:#16a34a;font-weight:600">${r.isCredit ? renderAmtWithBreakdown(r, 'credit') : ''}</td>
+                <td data-label="Dr Amount" style="text-align:right;color:#dc2626;font-weight:600">${r.isDebit  ? renderAmtWithBreakdown(r, 'debit')  : ''}</td>
+                <td data-label="Balance" style="text-align:right;font-weight:600;color:${balC}">${balStr}</td>
+                <td class="td-actions" style="text-align:center">${actionBtn}</td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -225,10 +225,10 @@ function renderLedgerTable(rows, totals) {
           <tr class="led-total-row">
             <td colspan="3" style="text-align:right;font-weight:700;color:#374151">Total</td>
             <td class="led-narration-col" style="display:${narDisplay}"></td>
-            <td style="text-align:right;font-weight:700;color:#9ca3af">${totalBrok ? fmtAmt(totalBrok) : ''}</td>
-            <td style="text-align:right;font-weight:700;color:#16a34a">${fmtAmt(totalCr)}</td>
-            <td style="text-align:right;font-weight:700;color:#dc2626">${fmtAmt(totalDr)}</td>
-            <td style="text-align:right;font-weight:700;color:${balColor}">${fmtAmt(Math.abs(finalBal))} ${balSign}</td>
+            <td data-label="Brokerage" style="text-align:right;font-weight:700;color:#9ca3af">${totalBrok ? fmtAmt(totalBrok) : ''}</td>
+            <td data-label="Cr Amount" style="text-align:right;font-weight:700;color:#16a34a">${fmtAmt(totalCr)}</td>
+            <td data-label="Dr Amount" style="text-align:right;font-weight:700;color:#dc2626">${fmtAmt(totalDr)}</td>
+            <td data-label="Balance" style="text-align:right;font-weight:700;color:${balColor}">${fmtAmt(Math.abs(finalBal))} ${balSign}</td>
             <td></td>
           </tr>
         </tfoot>

@@ -66,7 +66,7 @@ function renderAccountsTable(data) {
 
   wrap.innerHTML = `
     <div class="table-wrap">
-      <table>
+      <table class="rwd-table">
         <thead>
           <tr>
             <th>#</th>
@@ -83,20 +83,20 @@ function renderAccountsTable(data) {
         <tbody>
           ${data.map(a => `
             <tr>
-              <td style="color:#9ca3af;font-size:0.8rem">${a.id}</td>
-              <td><strong>${escHtml(a.account_name)}</strong></td>
-              <td style="color:#6b7280">${escHtml(a.mobile_number) || '—'}</td>
-              <td style="text-align:right">${fmtAmt(a.opening_amount)}</td>
-              <td style="color:#6b7280">${fmtDate(a.balance_date)}</td>
-              <td style="color:#6b7280">${escHtml(a.group_name) || '—'}</td>
-              <td style="color:#6b7280">${escHtml(a.parent_name) || escHtml(a.parent_account) || '—'}</td>
-              <td style="text-align:center">
+              <td data-label="#" style="color:#9ca3af;font-size:0.8rem">${a.id}</td>
+              <td data-label="Name"><strong>${escHtml(a.account_name)}</strong></td>
+              <td data-label="Mobile" style="color:#6b7280">${escHtml(a.mobile_number) || '—'}</td>
+              <td data-label="Opening Amt" style="text-align:right">${fmtAmt(a.opening_amount)}</td>
+              <td data-label="Balance Date" style="color:#6b7280">${fmtDate(a.balance_date)}</td>
+              <td data-label="Group" style="color:#6b7280">${escHtml(a.group_name) || '—'}</td>
+              <td data-label="Parent" style="color:#6b7280">${escHtml(a.parent_name) || escHtml(a.parent_account) || '—'}</td>
+              <td data-label="Status" style="text-align:center">
                 ${a.is_active
                   ? '<span class="badge badge-active">Active</span>'
                   : '<span class="badge badge-inactive">Inactive</span>'}
               </td>
               ${canEdit ? `
-              <td style="text-align:center">
+              <td class="td-actions" style="text-align:center">
                 <div class="action-menu-wrap">
                   <button class="btn-action-menu" onclick="toggleActionMenu(this)" title="Actions">···</button>
                   <div class="action-dropdown">
