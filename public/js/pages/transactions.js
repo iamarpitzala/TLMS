@@ -11,15 +11,15 @@ let txEditId = null; // non-null when the inline form is in edit mode
 
 function calcCommFromRate(amtRaw, rateRaw) {
   const amt  = parseFloat(amtRaw)  || 0;
-  const rate = parseFloat(rateRaw) || 0;
-  if (amt <= 0 || rate <= 0) return '';
+  const rate = parseFloat(rateRaw);
+  if (amt === 0 || isNaN(rate) || rate === 0) return '';
   return parseFloat((amt * rate / 100).toFixed(4));
 }
 
 function calcRateFromComm(amtRaw, commRaw) {
   const amt  = parseFloat(amtRaw)  || 0;
-  const comm = parseFloat(commRaw) || 0;
-  if (amt <= 0 || comm <= 0) return '';
+  const comm = parseFloat(commRaw);
+  if (amt === 0 || isNaN(comm) || comm === 0) return '';
   return parseFloat((comm / amt * 100).toFixed(6));
 }
 
@@ -48,11 +48,11 @@ function onInlineAmountChange() {
     const rateEl = document.getElementById(`te-${side}-rate`);
     const commEl = document.getElementById(`te-${side}-comm`);
     if (!rateEl || !commEl) continue;
-    if (rateEl.value) {
-      // rate is set → update commission
+    if (rateEl.value !== '' && rateEl.value !== null) {
+      // rate is set → update commission (supports negative rates)
       commEl.value = calcCommFromRate(amt, rateEl.value);
-    } else if (commEl.value) {
-      // commission is set → update rate
+    } else if (commEl.value !== '' && commEl.value !== null) {
+      // commission is set → update rate (supports negative commissions)
       rateEl.value = calcRateFromComm(amt, commEl.value);
     }
   }
@@ -107,12 +107,12 @@ async function renderTransactions() {
             </div>
             <div class="tx-entry-field tx-entry-field--xs">
               <label>Rate %</label>
-              <input type="number" id="te-debit-rate" min="0" step="0.0001" placeholder="0.00"
+              <input type="number" id="te-debit-rate" step="0.0001" placeholder="0.00"
                 oninput="onInlineRateChange('debit')" />
             </div>
             <div class="tx-entry-field tx-entry-field--xs">
               <label>Commission</label>
-              <input type="number" id="te-debit-comm" min="0" step="0.001" placeholder="0"
+              <input type="number" id="te-debit-comm" step="0.001" placeholder="0"
                 oninput="onInlineCommChange('debit')" />
             </div>
           </div>
@@ -131,12 +131,12 @@ async function renderTransactions() {
             </div>
             <div class="tx-entry-field tx-entry-field--xs">
               <label>Rate %</label>
-              <input type="number" id="te-credit-rate" min="0" step="0.0001" placeholder="0.00"
+              <input type="number" id="te-credit-rate" step="0.0001" placeholder="0.00"
                 oninput="onInlineRateChange('credit')" />
             </div>
             <div class="tx-entry-field tx-entry-field--xs">
               <label>Commission</label>
-              <input type="number" id="te-credit-comm" min="0" step="0.001" placeholder="0"
+              <input type="number" id="te-credit-comm" step="0.001" placeholder="0"
                 oninput="onInlineCommChange('credit')" />
             </div>
           </div>
@@ -284,7 +284,7 @@ async function submitInlineTransaction() {
   try {
     if (txEditId) {
       // ── Edit mode: PATCH existing transaction ──────────────────────────
-      // The PATCH endpoint expects commission in display units (×1000 factor applied server-side)
+      // Commission is stored in '000s units — no scaling, send as-is
       await API.patch('/api/transactions/' + txEditId, {
         transaction_date:   data.transaction_date,
         transaction_city:   data.transaction_city,
@@ -559,11 +559,11 @@ async function editTransaction(txId) {
   set('te-debit',  tx.debit_party_id   || '');
   set('te-credit', tx.credit_party_id  || '');
 
-  // Commission is stored as a fraction (÷1000 on save), convert back to display units
+  // Commission stored as-is (same units as amount), no scaling needed
   const dRate = parseFloat(tx.debit_rate)  || '';
   const cRate = parseFloat(tx.credit_rate) || '';
-  const dComm = tx.debit_commission  ? parseFloat((parseFloat(tx.debit_commission)  * 1000).toFixed(4)) : '';
-  const cComm = tx.credit_commission ? parseFloat((parseFloat(tx.credit_commission) * 1000).toFixed(4)) : '';
+  const dComm = (tx.debit_commission  != null && tx.debit_commission  !== '') ? parseFloat(parseFloat(tx.debit_commission).toFixed(4))  : '';
+  const cComm = (tx.credit_commission != null && tx.credit_commission !== '') ? parseFloat(parseFloat(tx.credit_commission).toFixed(4)) : '';
   set('te-debit-rate',  dRate);
   set('te-debit-comm',  dComm);
   set('te-credit-rate', cRate);
@@ -663,13 +663,13 @@ function inlineDateClick(td, txId, currentDate) {
         wallet_city:        tx.wallet_city         || '',
         debit_party_id:     tx.debit_party_id,
         debit_rate:         tx.debit_rate          || 0,
-        debit_commission:   parseFloat(((parseFloat(tx.debit_commission)  || 0) * 1000).toFixed(4)),
+        debit_commission:   parseFloat(parseFloat(tx.debit_commission  || 0).toFixed(4)),
         remarks:            tx.remarks             || '',
         message:            tx.message             || '',
         credit_wallet_city: tx.credit_wallet_city  || '',
         credit_party_id:    tx.credit_party_id,
         credit_rate:        tx.credit_rate         || 0,
-        credit_commission:  parseFloat(((parseFloat(tx.credit_commission) || 0) * 1000).toFixed(4)),
+        credit_commission:  parseFloat(parseFloat(tx.credit_commission || 0).toFixed(4)),
       });
       toast('Date updated', 'success');
       td.innerHTML = `<span style="white-space:nowrap;color:#374151;cursor:pointer" onclick="inlineDateClick(this.parentElement,${txId},'${newDate}')">${fmtDate(newDate)}</span>`;

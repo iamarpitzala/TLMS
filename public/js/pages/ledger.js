@@ -127,10 +127,14 @@ function renderLedgerTable(rows, totals) {
   const processedRows = rows.map(r => {
     const isDebit  = r.entry_type === 'debit';
     const isCredit = r.entry_type === 'credit';
-    const amt  = parseFloat(r.amount)    || 0;
+    // Use base amount for CR/DR display columns and totals
+    const base    = parseFloat(r.tx_base_amount);
+    const dispAmt = (!isNaN(base) && base !== 0) ? base : (parseFloat(r.amount) || 0);
+    // Use commission-adjusted ledger amount for running balance
+    const ledgerAmt = parseFloat(r.amount) || 0;
     const brok = parseFloat(r.brokerage) || 0;
-    if (isCredit) { runningBal += amt; totalCr += amt; }
-    else          { runningBal -= amt; totalDr += amt; }
+    if (isCredit) { runningBal += ledgerAmt; totalCr += dispAmt; }
+    else          { runningBal -= ledgerAmt; totalDr += dispAmt; }
     totalBrok += brok;
     return { ...r, isDebit, isCredit, runningBal };
   });
@@ -272,8 +276,7 @@ function renderAmtWithBreakdown(entry, side) {
   const total = parseFloat(entry.amount)         || 0;
   const comm  = parseFloat(entry.brokerage)      || 0;
   const base  = parseFloat(entry.tx_base_amount);
-  if (comm === 0 || isNaN(base)) return fmtAmt(total);
-  const sign      = side === 'debit' ? '+' : '−';
-  const commColor = side === 'debit' ? '#dc2626' : '#16a34a';
-  return `${fmtAmt(total)}<div style="font-size:0.72rem;font-weight:400;color:#9ca3af;margin-top:1px">${fmtAmt(base)}&thinsp;<span style="color:${commColor}">${sign}&thinsp;${fmtAmt(comm)}</span></div>`;
+  // Always show base amount in the CR/DR column; brokerage is in its own column
+  const display = (!isNaN(base) && base !== 0) ? base : total;
+  return fmtAmt(display);
 }

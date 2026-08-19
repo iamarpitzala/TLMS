@@ -115,24 +115,25 @@ function showApp() {
 
   // Working date widget (operators only — sets the default date for new transactions)
   const workingDateSlot = document.getElementById('sidebar-working-date-slot');
-  if (workingDateSlot) {
+  if (workingDateSlot) workingDateSlot.innerHTML = '';
+
+  const workingDateBar = document.getElementById('working-date-bar');
+  if (workingDateBar) {
     if (APP.isOperator()) {
-      APP._workingDate = new Date().toISOString().slice(0, 10); // reset to today on each login
-      workingDateSlot.innerHTML = `
-        <div class="sidebar-working-date">
-          <div class="sidebar-working-date-label">
-            <svg viewBox="0 0 24 24" fill="currentColor" style="width:11px;height:11px;flex-shrink:0"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
-            Working Date
-          </div>
-          <input type="date" id="sidebar-working-date" value="${APP._workingDate}"
+      APP._workingDate = new Date().toISOString().slice(0, 10);
+      workingDateBar.style.display = 'flex';
+      workingDateBar.innerHTML = `
+        <div class="working-date-widget">
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width:13px;height:13px;flex-shrink:0;opacity:0.7"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+          <span class="working-date-label">Working Date</span>
+          <input type="date" id="working-date-input" value="${APP._workingDate}"
             onchange="APP.workingDate = this.value" />
         </div>
       `;
     } else {
-      workingDateSlot.innerHTML = '';
+      workingDateBar.style.display = 'none';
     }
   }
-
   // Nav click handler
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', (e) => {

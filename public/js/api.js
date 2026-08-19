@@ -64,8 +64,8 @@ window.APP = {
   get workingDate() { return this._workingDate; },
   set workingDate(val) {
     this._workingDate = val;
-    // keep the sidebar widget in sync if it exists
-    const el = document.getElementById('sidebar-working-date');
+    // keep the top-bar widget in sync if it exists
+    const el = document.getElementById('working-date-input');
     if (el && el.value !== val) el.value = val;
     // keep the inline entry form in sync if it's showing in create mode (not edit)
     const teDate = document.getElementById('te-date');

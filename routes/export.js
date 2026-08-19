@@ -5,6 +5,10 @@ const { pool } = require('../db');
 const { requireLogin } = require('../middleware/auth');
 const router = express.Router();
 
+// Scale stored '000s value to display rupees (mirrors fmtAmt on frontend)
+const toDisplay = (n) => parseFloat(((parseFloat(n) || 0) * 1000).toFixed(2));
+const fmtNum    = (n) => toDisplay(n).toFixed(2);
+
 // ─── Helper: ledger data ──────────────────────────────────────────────────
 async function getLedgerData(account_id, type, date_from, date_to) {
   let typeFilter;
@@ -101,44 +105,146 @@ router.get('/ledger/pdf', requireLogin, async (req, res) => {
   if (!acc) return res.status(404).json({ error: 'Account not found' });
   const rows = await getLedgerData(account_id, type, date_from, date_to);
 
-  const doc = new PDFDocument({ margin: 40, size: 'A4' });
+  const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'landscape' });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="ledger_${acc.account_name}_${Date.now()}.pdf"`);
   doc.pipe(res);
 
-  doc.fontSize(16).font('Helvetica-Bold').text('Transaction & Ledger Management System', { align: 'center' });
-  doc.moveDown(0.3);
-  doc.fontSize(12).font('Helvetica').text(`${type === 'debit' ? 'Debit' : type === 'credit' ? 'Credit' : 'Full'} Ledger: ${acc.account_name}`, { align: 'center' });
-  if (date_from || date_to) doc.fontSize(10).text(`Period: ${date_from||'Start'} to ${date_to||'End'}`, { align: 'center' });
-  doc.moveDown(0.5);
+  const PAGE_W  = doc.page.width;
+  const MARGIN  = 40;
+  const TABLE_W = PAGE_W - MARGIN * 2;
+  const ROW_H   = 18;
+  const PAGE_H  = doc.page.height;
+  const BOTTOM_MARGIN = 50;
 
-  const cols = [40, 85, 200, 310, 420, 500];
-  doc.fontSize(9).font('Helvetica-Bold');
-  ['ID','Date','Particulars','Message','Brokerage','Amount'].forEach((h,i) =>
-    doc.text(h, cols[i], doc.y, { width: cols[i+1] ? cols[i+1]-cols[i]-5 : 80 }));
-  doc.moveDown(0.3);
-  doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke();
-  doc.moveDown(0.2);
+  // Column layout: ID | Date | Particulars | Message | Brokerage | Cr Amt | Dr Amt | Balance
+  // x positions (left edge of each column)
+  const C = {
+    id:    MARGIN,
+    date:  MARGIN + 35,
+    part:  MARGIN + 100,
+    msg:   MARGIN + 250,
+    brok:  MARGIN + 370,
+    cr:    MARGIN + 450,
+    dr:    MARGIN + 545,
+    bal:   MARGIN + 630,
+  };
+  const W = {
+    id:   32,
+    date: 58,
+    part: 145,
+    msg:  115,
+    brok: 75,
+    cr:   90,
+    dr:   80,
+    bal:  90,
+  };
 
-  let tb = 0, ta = 0;
-  doc.font('Helvetica').fontSize(8);
-  rows.forEach(r => {
-    const y = doc.y;
-    doc.text(String(r.id), cols[0], y, {width:40});
-    doc.text(r.entry_date, cols[1], y, {width:80});
-    doc.text(r.particulars||'', cols[2], y, {width:100});
-    doc.text(r.message||'', cols[3], y, {width:100});
-    doc.text((r.brokerage||0).toFixed(2), cols[4], y, {width:75});
-    doc.text((r.amount||0).toFixed(2), cols[5], y, {width:75});
-    doc.moveDown(0.7);
-    tb += r.brokerage||0; ta += r.amount||0;
+  // ── Draw title block ──────────────────────────────────────────────────
+  doc.fontSize(15).font('Helvetica-Bold')
+     .text('Transaction & Ledger Management System', MARGIN, MARGIN, { width: TABLE_W, align: 'center' });
+  doc.fontSize(11).font('Helvetica')
+     .text(`${type === 'debit' ? 'Debit' : type === 'credit' ? 'Credit' : 'Full'} Ledger: ${acc.account_name}`,
+           MARGIN, doc.y + 4, { width: TABLE_W, align: 'center' });
+  if (date_from || date_to)
+    doc.fontSize(9).text(`Period: ${date_from||'Start'} to ${date_to||'End'}`,
+                         MARGIN, doc.y + 3, { width: TABLE_W, align: 'center' });
+
+  // ── Helper: draw one header row ───────────────────────────────────────
+  function drawHeader(y) {
+    // header background
+    doc.save().rect(MARGIN, y, TABLE_W, ROW_H).fill('#1e3a5f').restore();
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#ffffff');
+    const hy = y + 5;
+    doc.text('ID',         C.id,   hy, { width: W.id,   lineBreak: false });
+    doc.text('Date',       C.date, hy, { width: W.date, lineBreak: false });
+    doc.text('Particulars',C.part, hy, { width: W.part, lineBreak: false });
+    doc.text('Message',    C.msg,  hy, { width: W.msg,  lineBreak: false });
+    doc.text('Brokerage',  C.brok, hy, { width: W.brok, align: 'right', lineBreak: false });
+    doc.text('Cr Amount',  C.cr,   hy, { width: W.cr,   align: 'right', lineBreak: false });
+    doc.text('Dr Amount',  C.dr,   hy, { width: W.dr,   align: 'right', lineBreak: false });
+    doc.text('Balance',    C.bal,  hy, { width: W.bal,  align: 'right', lineBreak: false });
+    doc.fillColor('#000000');
+    return y + ROW_H;
+  }
+
+  // ── Helper: draw one data row ─────────────────────────────────────────
+  function drawRow(y, cells, isShaded) {
+    if (isShaded) {
+      doc.save().rect(MARGIN, y, TABLE_W, ROW_H).fill('#f5f7fa').restore();
+    }
+    doc.fontSize(7.5).font('Helvetica').fillColor('#000000');
+    const ry = y + 5;
+    doc.text(cells.id,   C.id,   ry, { width: W.id,   lineBreak: false });
+    doc.text(cells.date, C.date, ry, { width: W.date, lineBreak: false });
+    doc.text(cells.part, C.part, ry, { width: W.part, lineBreak: false });
+    doc.text(cells.msg,  C.msg,  ry, { width: W.msg,  lineBreak: false });
+    doc.text(cells.brok, C.brok, ry, { width: W.brok, align: 'right', lineBreak: false });
+    doc.text(cells.cr,   C.cr,   ry, { width: W.cr,   align: 'right', lineBreak: false });
+    doc.text(cells.dr,   C.dr,   ry, { width: W.dr,   align: 'right', lineBreak: false });
+    doc.text(cells.bal,  C.bal,  ry, { width: W.bal,  align: 'right', lineBreak: false });
+    return y + ROW_H;
+  }
+
+  // ── Opening balance row ───────────────────────────────────────────────
+  const opening = parseFloat(acc.opening_amount) || 0;
+  let runBal = toDisplay(opening);
+
+  let curY = doc.y + 10;
+  curY = drawHeader(curY);
+
+  const obCr = runBal >= 0 ? runBal.toFixed(2) : '';
+  const obDr = runBal < 0  ? Math.abs(runBal).toFixed(2) : '';
+  const obBal = `${Math.abs(runBal).toFixed(2)} ${runBal >= 0 ? 'Cr' : 'Dr'}`;
+  curY = drawRow(curY, { id: '', date: '', part: 'Opening Balance', msg: 'Opening Balance',
+    brok: '', cr: obCr, dr: obDr, bal: obBal }, false);
+
+  // ── Data rows ─────────────────────────────────────────────────────────
+  let totalBrok = 0, totalCr = 0, totalDr = 0;
+  rows.forEach((r, idx) => {
+    // new page if needed
+    if (curY + ROW_H > PAGE_H - BOTTOM_MARGIN) {
+      doc.addPage();
+      curY = MARGIN;
+      curY = drawHeader(curY);
+    }
+
+    const isCredit = r.entry_type === 'credit';
+    const isDebit  = r.entry_type === 'debit';
+    const base  = parseFloat(r.tx_base_amount);
+    const dispAmt  = (!isNaN(base) && base !== 0) ? toDisplay(base) : toDisplay(r.amount);
+    const ledgerAmt = toDisplay(r.amount); // commission-adjusted for balance
+    const dispBrok  = toDisplay(r.brokerage); // signed
+
+    if (isCredit) { runBal += ledgerAmt; totalCr += dispAmt; }
+    else          { runBal -= ledgerAmt; totalDr += dispAmt; }
+    totalBrok += dispBrok;
+
+    const balStr = `${Math.abs(runBal).toFixed(2)} ${runBal >= 0 ? 'Cr' : 'Dr'}`;
+
+    curY = drawRow(curY, {
+      id:   String(r.id),
+      date: r.entry_date || '',
+      part: r.particulars || '',
+      msg:  r.message || '',
+      brok: dispBrok !== 0 ? dispBrok.toFixed(2) : '',
+      cr:   isCredit ? dispAmt.toFixed(2) : '',
+      dr:   isDebit  ? dispAmt.toFixed(2) : '',
+      bal:  balStr,
+    }, idx % 2 === 0);
   });
-  doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke(); doc.moveDown(0.3);
-  doc.font('Helvetica-Bold').fontSize(9);
-  doc.text('TOTAL', cols[0], doc.y, {width:350});
-  const ty = doc.y - doc.currentLineHeight();
-  doc.text(tb.toFixed(2), cols[4], ty, {width:75});
-  doc.text(ta.toFixed(2), cols[5], ty, {width:75});
+
+  // ── Total row ─────────────────────────────────────────────────────────
+  if (curY + ROW_H > PAGE_H - BOTTOM_MARGIN) { doc.addPage(); curY = MARGIN; }
+  doc.save().rect(MARGIN, curY, TABLE_W, ROW_H).fill('#d9e1f2').restore();
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#000000');
+  const ty = curY + 5;
+  doc.text('TOTAL', C.id, ty, { width: W.id + W.date + W.part + W.msg, lineBreak: false });
+  doc.text(totalBrok !== 0 ? totalBrok.toFixed(2) : '', C.brok, ty, { width: W.brok, align: 'right', lineBreak: false });
+  doc.text(totalCr.toFixed(2), C.cr, ty, { width: W.cr, align: 'right', lineBreak: false });
+  doc.text(totalDr.toFixed(2), C.dr, ty, { width: W.dr, align: 'right', lineBreak: false });
+  doc.text(`${Math.abs(runBal).toFixed(2)} ${runBal >= 0 ? 'Cr' : 'Dr'}`, C.bal, ty, { width: W.bal, align: 'right', lineBreak: false });
+
   doc.end();
 });
 
@@ -169,9 +275,12 @@ router.get('/ledger/excel', requireLogin, async (req, res) => {
 
   let tb=0, ta=0;
   rows.forEach(r => {
+    const base = parseFloat(r.tx_base_amount);
+    const dispAmt  = (!isNaN(base) && base !== 0) ? toDisplay(base) : toDisplay(r.amount);
+    const dispBrok = toDisplay(r.brokerage); // signed
     ws.addRow([r.id, r.entry_date, r.particulars||'', r.message||'',
-      parseFloat((r.brokerage||0).toFixed(2)), parseFloat((r.amount||0).toFixed(2))]);
-    tb += r.brokerage||0; ta += r.amount||0;
+      parseFloat(dispBrok.toFixed(2)), parseFloat(dispAmt.toFixed(2))]);
+    tb += dispBrok; ta += dispAmt;
   });
   const tr = ws.addRow(['','','','TOTAL', parseFloat(tb.toFixed(2)), parseFloat(ta.toFixed(2))]);
   tr.font = {bold:true};
@@ -287,12 +396,12 @@ router.get('/transactions/pdf', requireLogin, async (req, res) => {
     doc.text(r.transaction_date||'',cols[1],y,{width:widths[1]});
     doc.text(r.debit_party_name||'-',cols[2],y,{width:widths[2]});
     doc.text(r.credit_party_name||'-',cols[3],y,{width:widths[3]});
-    doc.text((r.amount||0).toFixed(2),cols[4],y,{width:widths[4]});
-    doc.text((r.debit_commission||0).toFixed(2),cols[5],y,{width:widths[5]});
-    doc.text((r.credit_commission||0).toFixed(2),cols[6],y,{width:widths[6]});
+    doc.text(fmtNum(r.amount),cols[4],y,{width:widths[4]});
+    doc.text(fmtNum(r.debit_commission),cols[5],y,{width:widths[5]});
+    doc.text(fmtNum(r.credit_commission),cols[6],y,{width:widths[6]});
     doc.text(r.status||'',cols[7],y,{width:widths[7]});
     doc.moveDown(0.65);
-    tA+=r.amount||0; tDC+=r.debit_commission||0; tCC+=r.credit_commission||0;
+    tA+=toDisplay(r.amount); tDC+=toDisplay(r.debit_commission); tCC+=toDisplay(r.credit_commission);
   });
   doc.moveTo(30,doc.y).lineTo(780,doc.y).stroke(); doc.moveDown(0.3);
   doc.font('Helvetica-Bold').fontSize(8);
@@ -328,10 +437,10 @@ router.get('/transactions/excel', requireLogin, async (req, res) => {
   rows.forEach(r=>{
     ws.addRow([r.voucher_number,r.transaction_date,r.transaction_city||'',
       r.debit_party_name||'',r.credit_party_name||'',
-      parseFloat((r.amount||0).toFixed(2)),parseFloat((r.debit_rate||0).toFixed(2)),
-      parseFloat((r.debit_commission||0).toFixed(2)),parseFloat((r.credit_rate||0).toFixed(2)),
-      parseFloat((r.credit_commission||0).toFixed(2)),r.status,r.created_by_name||'',r.remarks||'',r.message||'']);
-    tA+=r.amount||0; tDC+=r.debit_commission||0; tCC+=r.credit_commission||0;
+      toDisplay(r.amount), parseFloat((r.debit_rate||0).toFixed(2)),
+      toDisplay(r.debit_commission), parseFloat((r.credit_rate||0).toFixed(2)),
+      toDisplay(r.credit_commission), r.status, r.created_by_name||'', r.remarks||'', r.message||'']);
+    tA+=toDisplay(r.amount); tDC+=toDisplay(r.debit_commission); tCC+=toDisplay(r.credit_commission);
   });
   const tr=ws.addRow(['TOTAL','','','','',parseFloat(tA.toFixed(2)),'',parseFloat(tDC.toFixed(2)),'',parseFloat(tCC.toFixed(2)),'','','','']);
   tr.font={bold:true};
@@ -378,17 +487,17 @@ router.get('/transaction/pdf', requireLogin, async (req, res) => {
   doc.moveDown(0.3);
   field('Transaction City',tx.transaction_city);
   field('Token Details',tx.token_details);
-  field('Amount',tx.amount?(+tx.amount).toFixed(2):'0.00');
+  field('Amount', fmtNum(tx.amount));
   field('Wallet City',tx.wallet_city);
   doc.moveDown(0.3);
   field('Debit Party',tx.debit_party_name);
   field('Debit Rate',`${tx.debit_rate||0}%`);
-  field('Debit Commission',tx.debit_commission?(+tx.debit_commission).toFixed(2):'0.00');
+  field('Debit Commission', fmtNum(tx.debit_commission));
   doc.moveDown(0.3);
   field('Credit Party',tx.credit_party_name);
   field('Credit Wallet City',tx.credit_wallet_city);
   field('Credit Rate',`${tx.credit_rate||0}%`);
-  field('Credit Commission',tx.credit_commission?(+tx.credit_commission).toFixed(2):'0.00');
+  field('Credit Commission', fmtNum(tx.credit_commission));
   doc.moveDown(0.3);
   field('Remarks',tx.remarks);
   field('Message',tx.message);

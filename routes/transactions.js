@@ -98,8 +98,8 @@ router.post('/', requireOperator, async (req, res) => {
     if (!debit_party_id || !credit_party_id) return res.status(400).json({ error: 'Debit and Credit Party are required' });
 
     const amt   = parseFloat(amount);
-    const dComm = parseFloat((parseFloat(debit_commission || 0) / 1000).toFixed(4));
-    const cComm = parseFloat((parseFloat(credit_commission || 0) / 1000).toFixed(4));
+    const dComm = parseFloat(parseFloat(debit_commission  || 0).toFixed(4));
+    const cComm = parseFloat(parseFloat(credit_commission || 0).toFixed(4));
     const dRate = parseFloat(debit_rate  || 0);
     const cRate = parseFloat(credit_rate || 0);
     const txDate = transaction_date || istDate();
@@ -235,8 +235,8 @@ router.patch('/:id', requireOperator, async (req, res) => {
     if (!debit_party_id || !credit_party_id) return res.status(400).json({ error: 'Debit and Credit Party are required' });
 
     const amt   = parseFloat(amount);
-    const dComm = parseFloat((parseFloat(debit_commission || 0) / 1000).toFixed(4));
-    const cComm = parseFloat((parseFloat(credit_commission || 0) / 1000).toFixed(4));
+    const dComm = parseFloat(parseFloat(debit_commission  || 0).toFixed(4));
+    const cComm = parseFloat(parseFloat(credit_commission || 0).toFixed(4));
     const dRate = parseFloat(debit_rate  || 0);
     const cRate = parseFloat(credit_rate || 0);
     const txDate = transaction_date || tx.transaction_date;
@@ -267,9 +267,9 @@ router.patch('/:id', requireOperator, async (req, res) => {
 
       // If already Verified, keep ledger entries in sync with updated values
       if (tx.status === 'Verified') {
-        const voucherNumber = tx.voucher_number;
+        // Both ledger amounts = base + commission (commission sign drives the direction)
         const debitAmt  = parseFloat((amt + dComm).toFixed(4));
-        const creditAmt = parseFloat((amt - cComm).toFixed(4));
+        const creditAmt = parseFloat((amt + cComm).toFixed(4));
 
         await client.query(`
           UPDATE ledger_entries SET
@@ -353,9 +353,10 @@ router.patch('/:id/verify', requireOperator, async (req, res) => {
     const cComm = parseFloat(tx.credit_commission) || 0;
     const baseAmt = parseFloat(tx.amount);
 
-    // Debit party pays base + their commission; credit party receives base - their commission
+    // Both ledger amounts = base + commission (commission sign drives the direction)
+    // e.g. dComm=+100 → debit 100100; cComm=-100 → credit 99900
     const debitAmt  = parseFloat((baseAmt + dComm).toFixed(4));
-    const creditAmt = parseFloat((baseAmt - cComm).toFixed(4));
+    const creditAmt = parseFloat((baseAmt + cComm).toFixed(4));
 
     await client.query('BEGIN');
 
