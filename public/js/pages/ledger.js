@@ -255,7 +255,6 @@ function exportLedger(format) {
 }
 
 async function lockLedgerEntry(entryId) {
-  if (!confirm('Lock this entry? It will be marked as verified and cannot be edited without an admin unlock.')) return;
   try {
     await API.patch(`/api/trial-balance/entries/${entryId}/verify`, {});
     toast('Entry locked', 'success');
@@ -264,7 +263,6 @@ async function lockLedgerEntry(entryId) {
 }
 
 async function unlockLedgerEntry(entryId) {
-  if (!confirm('Unlock this entry? The action will be recorded in the audit log.')) return;
   try {
     await API.patch(`/api/trial-balance/entries/${entryId}/unlock`, {});
     toast('Entry unlocked', 'success');

@@ -220,7 +220,6 @@ async function submitAccountForm(id) {
 
 async function toggleAccountStatus(id, currentActive) {
   const action = currentActive ? 'disable' : 'enable';
-  if (!confirm(`Are you sure you want to ${action} this account?`)) return;
   try {
     await API.patch('/api/accounts/' + id + '/disable');
     toast(`Account ${action}d`, 'success');

@@ -246,7 +246,6 @@ function toggleTbEntries(accountId) {
 }
 
 async function verifyTbEntry(entryId, accountId) {
-  if (!confirm('Lock this entry?')) return;
   try {
     await API.patch(`/api/trial-balance/entries/${entryId}/verify`, {});
     toast('Entry locked', 'success');
@@ -258,7 +257,6 @@ async function verifyTbEntry(entryId, accountId) {
 }
 
 async function unlockTbEntry(entryId, accountId) {
-  if (!confirm('Unlock this entry? The action will be recorded in the audit log.')) return;
   try {
     await API.patch(`/api/trial-balance/entries/${entryId}/unlock`, {});
     toast('Entry unlocked', 'success');

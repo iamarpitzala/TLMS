@@ -261,7 +261,6 @@ async function submitChangeRole(userId) {
 
 // ── Deactivate / Reactivate ───────────────────────────────────────────────
 async function deactivateUser(userId, username) {
-  if (!confirm(`Deactivate "${username}"?\nThey will not be able to log in until reactivated.`)) return;
   try {
     await API.delete(`/api/users/${userId}`);
     toast(`User "${username}" deactivated`, 'success');
@@ -270,7 +269,6 @@ async function deactivateUser(userId, username) {
 }
 
 async function reactivateUser(userId, username) {
-  if (!confirm(`Reactivate "${username}"?`)) return;
   try {
     await API.patch(`/api/users/${userId}/reactivate`, {});
     toast(`User "${username}" reactivated`, 'success');

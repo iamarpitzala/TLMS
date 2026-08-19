@@ -588,7 +588,6 @@ async function editTransaction(txId) {
 }
 
 async function verifyTransaction(txId) {
-  if (!confirm('Approve this transaction? Ledger entries will be posted.')) return;
   try {
     const updated = await API.patch(`/api/transactions/${txId}/verify`, {});
     toast(`${updated.voucher_number} approved`, 'success');
@@ -597,7 +596,6 @@ async function verifyTransaction(txId) {
 }
 
 async function unapproveTransaction(txId) {
-  if (!confirm('Un-approve this transaction? Ledger entries will be removed and status reverted to Pending.')) return;
   try {
     await API.patch(`/api/transactions/${txId}/unapprove`, {});
     toast('Transaction reverted to Pending', 'success');
@@ -606,12 +604,17 @@ async function unapproveTransaction(txId) {
 }
 
 async function deleteTransaction(txId, voucherNumber) {
-  if (!confirm(`Delete ${voucherNumber}? This cannot be undone.`)) return;
-  try {
-    await API.delete(`/api/transactions/${txId}`);
-    toast(`${voucherNumber} deleted`, 'success');
-    loadTransactions(txPage);
-  } catch (e) { toast(e.message, 'error'); }
+  Modal.confirm(
+    `Delete <strong>${escHtml(voucherNumber)}</strong>? This cannot be undone.`,
+    async () => {
+      try {
+        await API.delete(`/api/transactions/${txId}`);
+        toast(`${voucherNumber} deleted`, 'success');
+        loadTransactions(txPage);
+      } catch (e) { toast(e.message, 'error'); }
+    },
+    { confirmText: 'Delete', confirmClass: 'btn-danger', icon: 'danger' }
+  );
 }
 
 function exportTransactions(format) {
