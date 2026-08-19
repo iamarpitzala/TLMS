@@ -90,12 +90,10 @@ input, select, textarea { font-family: inherit; font-size: 0.925rem; }
 
 /* ── Working date bar (top-right of main content, operators only) ─────────── */
 #working-date-bar {
-  position: absolute;
-  top: 1.1rem;
-  right: 1.5rem;
-  z-index: 10;
   display: none;
   align-items: center;
+  justify-content: flex-end;
+  padding: 0 0 0.5rem 0;
 }
 .working-date-widget {
   display: inline-flex; align-items: center; gap: 6px;
@@ -110,7 +108,11 @@ input, select, textarea { font-family: inherit; font-size: 0.925rem; }
   color: #1e3a5f; font-weight: 600; cursor: pointer; outline: none;
   padding: 0;
 }
-
+/* When working date bar is visible, make page-header sit on same row */
+#working-date-bar + .page .page-header,
+#working-date-bar ~ .page.active .page-header {
+  padding-right: 0;
+}
 nav { flex: 1; padding: 0 0 0.5rem; }
 .nav-item {
   display: flex; align-items: center; gap: 10px;
@@ -167,7 +169,6 @@ nav { flex: 1; padding: 0 0 0.5rem; }
 #main-content {
   margin-left: 220px; flex: 1; padding: 1.5rem;
   max-width: calc(100vw - 220px); overflow-x: hidden;
-  position: relative;
 }
 
 .page { display: none; }
@@ -293,7 +294,7 @@ textarea { resize: vertical; min-height: 70px; }
 .btn-export svg { width: 14px; height: 14px; }
 
 /* ── Tables ──────────────────────────────────────────────────────────── */
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; overflow-y: visible; }
 table {
   width: 100%; border-collapse: collapse; font-size: 0.85rem;
   background: #fff;
@@ -319,7 +320,7 @@ tfoot td { background: #f8fafc; font-weight: 700; border-top: 1px solid #e5e7eb;
 }
 .btn-action-menu:hover { background: #f1f5f9; color: #374151; }
 .action-dropdown {
-  position: absolute; right: 0; top: calc(100% + 4px); z-index: 200;
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 1000;
   background: #fff; border-radius: 8px; padding: 0.3rem 0;
   box-shadow: 0 4px 20px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06);
   min-width: 170px; display: none;

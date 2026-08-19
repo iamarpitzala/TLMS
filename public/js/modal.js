@@ -46,7 +46,7 @@ const Modal = {
       info:    `<svg viewBox="0 0 24 24" fill="currentColor" style="width:22px;height:22px;color:#3b82f6"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>`,
     };
     this.open({
-      title: '',
+      title: '\u200b', // zero-width space — keeps header structure intact but visually empty
       size: 'sm',
       body: `
         <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:0.5rem 0 0.25rem;gap:0.75rem">
@@ -59,20 +59,10 @@ const Modal = {
         <button class="btn ${confirmClass}" id="modal-confirm-btn">${confirmText}</button>
       `
     });
-    // hide the modal header title bar since we have no title
-    const titleEl = this.title;
-    if (titleEl) titleEl.closest('.modal-header').style.display = 'none';
 
     document.getElementById('modal-confirm-btn').addEventListener('click', () => {
       this.close();
-      if (titleEl) titleEl.closest('.modal-header').style.display = '';
       onConfirm();
     });
-
-    // restore header on cancel too
-    const origClose = this.close.bind(this);
-    const _restore = () => { if (titleEl) titleEl.closest('.modal-header').style.display = ''; };
-    document.getElementById('modal-close-btn').addEventListener('click', _restore, { once: true });
-    this.el.addEventListener('click', e => { if (e.target === this.el) _restore(); }, { once: true });
   }
 };

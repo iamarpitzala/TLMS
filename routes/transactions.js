@@ -98,8 +98,8 @@ router.post('/', requireOperator, async (req, res) => {
     if (!debit_party_id || !credit_party_id) return res.status(400).json({ error: 'Debit and Credit Party are required' });
 
     const amt   = parseFloat(amount);
-    const dComm = parseFloat(parseFloat(debit_commission  || 0).toFixed(4));
-    const cComm = parseFloat(parseFloat(credit_commission || 0).toFixed(4));
+    const dComm = parseFloat((parseFloat(debit_commission  || 0)/1000).toFixed(4));
+    const cComm = parseFloat((parseFloat(credit_commission || 0)/1000).toFixed(4));
     const dRate = parseFloat(debit_rate  || 0);
     const cRate = parseFloat(credit_rate || 0);
     const txDate = transaction_date || istDate();
@@ -235,8 +235,8 @@ router.patch('/:id', requireOperator, async (req, res) => {
     if (!debit_party_id || !credit_party_id) return res.status(400).json({ error: 'Debit and Credit Party are required' });
 
     const amt   = parseFloat(amount);
-    const dComm = parseFloat(parseFloat(debit_commission  || 0).toFixed(4));
-    const cComm = parseFloat(parseFloat(credit_commission || 0).toFixed(4));
+    const dComm = parseFloat((parseFloat(debit_commission  || 0)/1000).toFixed(4));
+    const cComm = parseFloat((parseFloat(credit_commission || 0)/1000).toFixed(4));
     const dRate = parseFloat(debit_rate  || 0);
     const cRate = parseFloat(credit_rate || 0);
     const txDate = transaction_date || tx.transaction_date;

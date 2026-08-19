@@ -35,8 +35,48 @@ document.addEventListener('click', (e) => {
 function toggleActionMenu(btn) {
   const dropdown = btn.nextElementSibling;
   const isOpen = dropdown.classList.contains('open');
-  document.querySelectorAll('.action-dropdown.open').forEach(d => d.classList.remove('open'));
-  if (!isOpen) dropdown.classList.add('open');
+
+  // Close all open dropdowns and reset their positioning
+  document.querySelectorAll('.action-dropdown.open').forEach(d => {
+    d.classList.remove('open');
+    d.style.position = '';
+    d.style.top = '';
+    d.style.left = '';
+    d.style.right = '';
+    d.style.bottom = '';
+    d.style.minWidth = '';
+  });
+
+  if (!isOpen) {
+    // Position using fixed so it escapes any overflow:hidden/auto ancestor
+    const btnRect = btn.getBoundingClientRect();
+    const dropW = 180;
+    const dropH = 220; // approximate max height
+
+    // Decide left/right
+    let left = btnRect.right - dropW;
+    if (left < 8) left = btnRect.left;
+
+    // Decide top/bottom
+    const spaceBelow = window.innerHeight - btnRect.bottom;
+    let top, bottom;
+    if (spaceBelow < dropH && btnRect.top > dropH) {
+      // open upward
+      bottom = window.innerHeight - btnRect.top + 4;
+      top = 'auto';
+    } else {
+      top = btnRect.bottom + 4;
+      bottom = 'auto';
+    }
+
+    dropdown.style.position = 'fixed';
+    dropdown.style.left = left + 'px';
+    dropdown.style.right = 'auto';
+    dropdown.style.top    = top    !== 'auto' ? top    + 'px' : 'auto';
+    dropdown.style.bottom = bottom !== 'auto' ? bottom + 'px' : 'auto';
+    dropdown.style.minWidth = dropW + 'px';
+    dropdown.classList.add('open');
+  }
 }
 
 // ── Main app controller ───────────────────────────────────────────────────
