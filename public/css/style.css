@@ -88,6 +88,32 @@ input, select, textarea { font-family: inherit; font-size: 0.925rem; }
   text-transform: uppercase; padding: 0.85rem 1.1rem 0.35rem;
 }
 
+/* ── Working date widget in sidebar ─────────────────────────────────────── */
+.sidebar-working-date {
+  padding: 0.35rem 0.75rem 0.6rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 0.15rem;
+}
+.sidebar-working-date-label {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.7px;
+  color: #4a5568; text-transform: uppercase; margin-bottom: 0.3rem;
+}
+.sidebar-working-date input[type="date"] {
+  width: 100%; padding: 0.32rem 0.55rem;
+  background: #243049; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px; color: #e2e8f0; font-size: 0.82rem;
+  cursor: pointer; transition: border-color 0.18s;
+}
+.sidebar-working-date input[type="date"]:focus {
+  outline: none; border-color: #4b9ef5;
+  box-shadow: 0 0 0 2px rgba(75,158,245,0.2);
+}
+/* Hide the widget on icon-only tablet sidebar */
+@media (max-width: 900px) and (min-width: 601px) {
+  #sidebar-working-date-slot { display: none; }
+}
+
 nav { flex: 1; padding: 0 0 0.5rem; }
 .nav-item {
   display: flex; align-items: center; gap: 10px;

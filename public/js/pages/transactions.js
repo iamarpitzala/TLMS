@@ -63,7 +63,7 @@ function onInlineAmountChange() {
 async function renderTransactions() {
   const page = document.getElementById('page-transactions');
   const canCreate = APP.isOperator();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = APP.workingDate;
 
   page.innerHTML = `
     <div class="page-header">
@@ -221,13 +221,12 @@ function setTxTab(status, btn) {
 }
 
 function resetInlineForm() {
-  const today = new Date().toISOString().slice(0, 10);
   ['te-token','te-city','te-remarks'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   ['te-debit','te-credit'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   ['te-amount','te-debit-rate','te-debit-comm','te-credit-rate','te-credit-comm'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  const date = document.getElementById('te-date'); if (date) date.value = today;
+  const date = document.getElementById('te-date'); if (date) date.value = APP.workingDate;
   const errEl = document.getElementById('te-error'); if (errEl) errEl.style.display = 'none';
   // clear edit state
   txEditId = null;

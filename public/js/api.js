@@ -59,6 +59,18 @@ function toast(msg, type = 'info', duration = 3500) {
 window.APP = {
   user: null,
   accounts: [],
+  _workingDate: new Date().toISOString().slice(0, 10),
+
+  get workingDate() { return this._workingDate; },
+  set workingDate(val) {
+    this._workingDate = val;
+    // keep the sidebar widget in sync if it exists
+    const el = document.getElementById('sidebar-working-date');
+    if (el && el.value !== val) el.value = val;
+    // keep the inline entry form in sync if it's showing in create mode (not edit)
+    const teDate = document.getElementById('te-date');
+    if (teDate && !window.txEditId) teDate.value = val;
+  },
 
   isAdmin() { return this.user && this.user.role === 'administrator'; },
   isOperator() { return this.user && (this.user.role === 'operator' || this.user.role === 'administrator'); },
