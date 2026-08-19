@@ -2,6 +2,7 @@
 let txPage = 1;
 const TX_PAGE_SIZE = 50;
 let txStatusFilter = '';
+let txEditId = null; // non-null when the inline form is in edit mode
 
 // ── Rate ↔ Commission helpers ─────────────────────────────────────────────
 // commission = amount × rate / 100
@@ -52,39 +53,6 @@ function onInlineAmountChange() {
       commEl.value = calcCommFromRate(amt, rateEl.value);
     } else if (commEl.value) {
       // commission is set → update rate
-      rateEl.value = calcRateFromComm(amt, commEl.value);
-    }
-  }
-}
-
-// Edit modal: when Rate changes → recalculate Commission
-function onEditRateChange(side) {
-  const amt  = document.getElementById('tx-amount')?.value;
-  const rate = document.getElementById(`tx-${side}-rate`)?.value;
-  const comm = calcCommFromRate(amt, rate);
-  const el   = document.getElementById(`tx-${side}-comm`);
-  if (el) el.value = comm;
-}
-
-// Edit modal: when Commission changes → recalculate Rate
-function onEditCommChange(side) {
-  const amt  = document.getElementById('tx-amount')?.value;
-  const comm = document.getElementById(`tx-${side}-comm`)?.value;
-  const rate = calcRateFromComm(amt, comm);
-  const el   = document.getElementById(`tx-${side}-rate`);
-  if (el) el.value = rate;
-}
-
-// Edit modal: when Amount changes → recalculate commissions from rates
-function onEditAmountChange() {
-  const amt = document.getElementById('tx-amount')?.value;
-  for (const side of ['debit', 'credit']) {
-    const rateEl = document.getElementById(`tx-${side}-rate`);
-    const commEl = document.getElementById(`tx-${side}-comm`);
-    if (!rateEl || !commEl) continue;
-    if (rateEl.value) {
-      commEl.value = calcCommFromRate(amt, rateEl.value);
-    } else if (commEl.value) {
       rateEl.value = calcRateFromComm(amt, commEl.value);
     }
   }
@@ -187,11 +155,17 @@ async function renderTransactions() {
           </div>
 
           <div class="tx-entry-actions">
-            <button class="btn-entry-submit" onclick="submitInlineTransaction()" title="Add Transaction">+</button>
+            <button class="btn-entry-submit" id="te-submit-btn" onclick="submitInlineTransaction()" title="Add Transaction">+</button>
             <button class="btn-entry-reset" onclick="resetInlineForm()" title="Reset">↺</button>
+            <button class="btn-entry-cancel" id="te-cancel-btn" onclick="cancelEdit()" title="Cancel Edit" style="display:none">✕</button>
           </div>
         </div>
 
+      </div>
+      <div id="te-edit-banner" style="display:none;align-items:center;gap:0.5rem;padding:0.35rem 0.75rem;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;font-size:0.82rem;color:#856404;margin-top:0.5rem">
+        <svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px;flex-shrink:0"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        <span id="te-edit-banner-text">Editing transaction</span>
+        <button onclick="cancelEdit()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#856404;font-size:0.8rem;padding:0 0.25rem">Cancel</button>
       </div>
       <div id="te-error" class="alert alert-error" style="display:none;margin-top:0.5rem"></div>
     </div>
@@ -255,6 +229,20 @@ function resetInlineForm() {
   });
   const date = document.getElementById('te-date'); if (date) date.value = today;
   const errEl = document.getElementById('te-error'); if (errEl) errEl.style.display = 'none';
+  // clear edit state
+  txEditId = null;
+  const submitBtn = document.getElementById('te-submit-btn');
+  if (submitBtn) { submitBtn.textContent = '+'; submitBtn.title = 'Add Transaction'; }
+  const cancelBtn = document.getElementById('te-cancel-btn');
+  if (cancelBtn) cancelBtn.style.display = 'none';
+  const banner = document.getElementById('te-edit-banner');
+  if (banner) banner.style.display = 'none';
+  const card = document.querySelector('.tx-entry-card');
+  if (card) card.classList.remove('tx-entry-card--editing');
+}
+
+function cancelEdit() {
+  resetInlineForm();
 }
 
 async function submitInlineTransaction() {
@@ -291,19 +279,47 @@ async function submitInlineTransaction() {
     errEl.textContent = 'Credit Party is required.'; errEl.style.display = 'flex'; return;
   }
 
-  const btn = document.querySelector('.btn-entry-submit');
+  const btn = document.getElementById('te-submit-btn');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
 
   try {
-    const created = await API.post('/api/transactions', data);
-    toast(`Saved: ${created.voucher_number}`, 'success');
-    resetInlineForm();
-    loadTransactions(1);
+    if (txEditId) {
+      // ── Edit mode: PATCH existing transaction ──────────────────────────
+      // The PATCH endpoint expects commission in display units (×1000 factor applied server-side)
+      await API.patch('/api/transactions/' + txEditId, {
+        transaction_date:   data.transaction_date,
+        transaction_city:   data.transaction_city,
+        token_details:      data.token_details,
+        amount:             data.amount,
+        wallet_city:        '',
+        debit_party_id:     data.debit_party_id,
+        debit_rate:         data.debit_rate,
+        debit_commission:   data.debit_commission,
+        remarks:            data.remarks,
+        message:            '',
+        credit_wallet_city: '',
+        credit_party_id:    data.credit_party_id,
+        credit_rate:        data.credit_rate,
+        credit_commission:  data.credit_commission,
+      });
+      toast('Transaction updated', 'success');
+      resetInlineForm();
+      loadTransactions(txPage);
+    } else {
+      // ── Create mode: POST new transaction ──────────────────────────────
+      const created = await API.post('/api/transactions', data);
+      toast(`Saved: ${created.voucher_number}`, 'success');
+      resetInlineForm();
+      loadTransactions(1);
+    }
   } catch (e) {
     errEl.textContent = e.message;
     errEl.style.display = 'flex';
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '+'; }
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = txEditId ? '✓' : '+';
+    }
   }
 }
 
@@ -400,40 +416,46 @@ function renderTxTable({ data, total, page, limit }) {
                 </span>
               </td>
               <td class="td-actions" style="text-align:center">
-                <div class="action-menu-wrap">
-                  <button class="btn-action-menu" onclick="toggleActionMenu(this)" title="Actions">···</button>
-                  <div class="action-dropdown">
-                    <button class="action-menu-item" onclick="viewTransaction(${tx.id})">
-                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-                      View
-                    </button>
-                    ${canAct ? `
-                    <button class="action-menu-item" onclick="editTransaction(${tx.id})">
-                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                      Edit
-                    </button>
-                    ${isPending ? `
-                    <button class="action-menu-item" onclick="verifyTransaction(${tx.id})">
-                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
-                      Approve
-                    </button>` : ''}
-                    ${!isPending && APP.isAdmin() ? `
-                    <button class="action-menu-item" onclick="unapproveTransaction(${tx.id})">
-                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg>
-                      Un-approve
-                    </button>` : ''}
-                    <hr class="action-menu-sep"/>
-                    <a href="/api/export/transaction/pdf?id=${tx.id}" target="_blank" class="action-menu-item">
-                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-                      PDF
-                    </a>
-                    ${APP.isAdmin() ? `
-                    <hr class="action-menu-sep"/>
-                    <button class="action-menu-item danger" onclick="deleteTransaction(${tx.id}, '${escHtml(tx.voucher_number)}')">
-                      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                      Delete
-                    </button>` : ''}
-                    ` : ''}
+                <div style="display:inline-flex;align-items:center;gap:4px">
+                  ${canAct ? `
+                  <button class="btn-row-edit" onclick="editTransaction(${tx.id})" title="Edit">
+                    <svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                  </button>` : ''}
+                  <div class="action-menu-wrap">
+                    <button class="btn-action-menu" onclick="toggleActionMenu(this)" title="Actions">···</button>
+                    <div class="action-dropdown">
+                      <button class="action-menu-item" onclick="viewTransaction(${tx.id})">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                        View
+                      </button>
+                      ${canAct ? `
+                      <button class="action-menu-item" onclick="editTransaction(${tx.id})">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                        Edit
+                      </button>
+                      ${isPending ? `
+                      <button class="action-menu-item" onclick="verifyTransaction(${tx.id})">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                        Approve
+                      </button>` : ''}
+                      ${!isPending && APP.isAdmin() ? `
+                      <button class="action-menu-item" onclick="unapproveTransaction(${tx.id})">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg>
+                        Un-approve
+                      </button>` : ''}
+                      <hr class="action-menu-sep"/>
+                      <a href="/api/export/transaction/pdf?id=${tx.id}" target="_blank" class="action-menu-item">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                        PDF
+                      </a>
+                      ${APP.isAdmin() ? `
+                      <hr class="action-menu-sep"/>
+                      <button class="action-menu-item danger" onclick="deleteTransaction(${tx.id}, '${escHtml(tx.voucher_number)}')">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                        Delete
+                      </button>` : ''}
+                      ` : ''}
+                    </div>
                   </div>
                 </div>
               </td>
@@ -521,71 +543,49 @@ function txDetailField(label, value) {
     </div>`;
 }
 
-async function editTransaction(txId, onSuccess = null) {
+async function editTransaction(txId) {
   if (!APP.isOperator()) { toast('Access denied', 'error'); return; }
   let tx;
   try { tx = await API.get('/api/transactions/' + txId); }
   catch (e) { toast(e.message, 'error'); return; }
 
-  Modal.open({
-    title: `Edit — ${tx.voucher_number}`,
-    size: 'lg',
-    body: buildTransactionForm(tx),
-    footer: `
-      <button class="btn btn-outline" onclick="Modal.close()">Cancel</button>
-      <button class="btn btn-primary" onclick="submitEditTransaction(${txId})">Save Changes</button>
-    `
-  });
-  editTransaction._onSuccess = onSuccess;
-}
+  // Populate the inline entry form
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
 
-async function submitEditTransaction(txId) {
-  const errEl = document.getElementById('tx-form-error');
-  errEl.style.display = 'none';
+  set('te-date',   tx.transaction_date || '');
+  set('te-token',  tx.token_details    || '');
+  set('te-amount', tx.amount           || '');
+  set('te-city',   tx.transaction_city || '');
+  set('te-remarks',tx.remarks          || '');
+  set('te-debit',  tx.debit_party_id   || '');
+  set('te-credit', tx.credit_party_id  || '');
 
-  const amt   = document.getElementById('tx-amount').value;
-  const dComm = document.getElementById('tx-debit-comm').value  || '0';
-  const cComm = document.getElementById('tx-credit-comm').value || '0';
-  const dRate = document.getElementById('tx-debit-rate').value  || '0';
-  const cRate = document.getElementById('tx-credit-rate').value || '0';
+  // Commission is stored as a fraction (÷1000 on save), convert back to display units
+  const dRate = parseFloat(tx.debit_rate)  || '';
+  const cRate = parseFloat(tx.credit_rate) || '';
+  const dComm = tx.debit_commission  ? parseFloat((parseFloat(tx.debit_commission)  * 1000).toFixed(4)) : '';
+  const cComm = tx.credit_commission ? parseFloat((parseFloat(tx.credit_commission) * 1000).toFixed(4)) : '';
+  set('te-debit-rate',  dRate);
+  set('te-debit-comm',  dComm);
+  set('te-credit-rate', cRate);
+  set('te-credit-comm', cComm);
 
-  const data = {
-    transaction_date:   document.getElementById('tx-date').value,
-    transaction_city:   document.getElementById('tx-city').value.trim(),
-    token_details:      document.getElementById('tx-token').value.trim(),
-    amount:             amt,
-    wallet_city:        document.getElementById('tx-wallet-city').value.trim(),
-    debit_party_id:     document.getElementById('tx-debit-party').value,
-    debit_rate:         dRate,
-    debit_commission:   dComm,
-    remarks:            document.getElementById('tx-remarks').value.trim(),
-    message:            document.getElementById('tx-message').value.trim(),
-    credit_wallet_city: document.getElementById('tx-credit-wallet-city').value.trim(),
-    credit_party_id:    document.getElementById('tx-credit-party').value,
-    credit_rate:        cRate,
-    credit_commission:  cComm,
-  };
+  // Switch form to edit mode
+  txEditId = txId;
+  const submitBtn = document.getElementById('te-submit-btn');
+  if (submitBtn) { submitBtn.textContent = '✓'; submitBtn.title = 'Save Changes'; }
+  const cancelBtn = document.getElementById('te-cancel-btn');
+  if (cancelBtn) cancelBtn.style.display = '';
+  const banner = document.getElementById('te-edit-banner');
+  const bannerText = document.getElementById('te-edit-banner-text');
+  if (banner) banner.style.display = 'flex';
+  if (bannerText) bannerText.textContent = `Editing: ${tx.voucher_number}`;
+  const card = document.querySelector('.tx-entry-card');
+  if (card) card.classList.add('tx-entry-card--editing');
 
-  if (!data.amount || parseFloat(data.amount) <= 0) { errEl.textContent = 'Amount required.'; errEl.style.display = 'flex'; return; }
-  if (!data.debit_party_id || !data.credit_party_id) { errEl.textContent = 'Both parties required.'; errEl.style.display = 'flex'; return; }
-
-  const btn = Modal.footer.querySelector('.btn-primary');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-  try {
-    await API.patch('/api/transactions/' + txId, data);
-    toast('Transaction updated', 'success');
-    Modal.close();
-    if (typeof editTransaction._onSuccess === 'function') {
-      editTransaction._onSuccess();
-      editTransaction._onSuccess = null;
-    } else {
-      loadTransactions(txPage);
-    }
-  } catch (e) {
-    errEl.textContent = e.message; errEl.style.display = 'flex';
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
-  }
+  // Scroll the entry form into view
+  const entryRow = document.getElementById('tx-entry-row');
+  if (entryRow) entryRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function verifyTransaction(txId) {
@@ -613,112 +613,6 @@ async function deleteTransaction(txId, voucherNumber) {
     toast(`${voucherNumber} deleted`, 'success');
     loadTransactions(txPage);
   } catch (e) { toast(e.message, 'error'); }
-}
-
-function buildTransactionForm(tx = null) {
-  const today = new Date().toISOString().slice(0, 10);
-  const v = (f, fb = '') => tx ? (tx[f] ?? fb) : fb;
-
-  // Commission is stored as a fraction (÷1000 on save), convert back to display units
-  const dCommDisplay = tx && parseFloat(tx.debit_commission)
-    ? parseFloat((parseFloat(tx.debit_commission) * 1000).toFixed(4)) : '';
-  const cCommDisplay = tx && parseFloat(tx.credit_commission)
-    ? parseFloat((parseFloat(tx.credit_commission) * 1000).toFixed(4)) : '';
-  const dRateDisplay = tx ? (parseFloat(tx.debit_rate)  || '') : '';
-  const cRateDisplay = tx ? (parseFloat(tx.credit_rate) || '') : '';
-
-  return `
-    <form id="tx-form" autocomplete="off">
-      <div class="section-label">Transaction Details</div>
-      <div class="form-grid-3">
-        <div class="field-group">
-          <label>Date</label>
-          <input type="date" id="tx-date" value="${v('transaction_date', today)}" />
-        </div>
-        <div class="field-group">
-          <label>Token</label>
-          <input type="text" id="tx-token" value="${escHtml(v('token_details'))}" placeholder="Token / ref" />
-        </div>
-        <div class="field-group">
-          <label class="required">Amount <span style="font-weight:400;color:#9ca3af;font-size:0.72rem">(in '000s)</span></label>
-          <input type="number" id="tx-amount" value="${v('amount','')}" step="0.001" min="0"
-            oninput="onEditAmountChange()" />
-        </div>
-        <div class="field-group">
-          <label>City</label>
-          <input type="text" id="tx-city" value="${escHtml(v('transaction_city'))}" placeholder="City" />
-        </div>
-        <div class="field-group">
-          <label>Wallet City</label>
-          <input type="text" id="tx-wallet-city" value="${escHtml(v('wallet_city'))}" />
-        </div>
-        <div class="field-group">
-          <label>Remarks</label>
-          <input type="text" id="tx-remarks" value="${escHtml(v('remarks'))}" />
-        </div>
-      </div>
-      <div class="field-group">
-        <label>Message</label>
-        <textarea id="tx-message" rows="2">${escHtml(v('message'))}</textarea>
-      </div>
-
-      <hr class="divider"/>
-      <div class="section-label">Debit Party</div>
-      <div class="form-grid-3">
-        <div class="field-group col-span-3">
-          <label class="required">Debit Party</label>
-          <select id="tx-debit-party">
-            <option value="">— Select —</option>
-            ${APP.accountOptions(v('debit_party_id'))}
-          </select>
-        </div>
-        <div class="field-group">
-          <label>Debit Rate %</label>
-          <input type="number" id="tx-debit-rate" value="${dRateDisplay}" step="0.0001" min="0" placeholder="0.00"
-            oninput="onEditRateChange('debit')" />
-        </div>
-        <div class="field-group">
-          <label>Debit Commission</label>
-          <input type="number" id="tx-debit-comm" value="${dCommDisplay}" step="0.001" min="0" placeholder="0"
-            oninput="onEditCommChange('debit')" />
-        </div>
-        <div class="field-group" style="display:flex;align-items:flex-end">
-          <div id="tx-debit-preview" style="font-size:0.8rem;color:#6b7280;padding-bottom:0.5rem"></div>
-        </div>
-      </div>
-
-      <hr class="divider"/>
-      <div class="section-label">Credit Party</div>
-      <div class="form-grid-3">
-        <div class="field-group">
-          <label class="required">Credit Party</label>
-          <select id="tx-credit-party">
-            <option value="">— Select —</option>
-            ${APP.accountOptions(v('credit_party_id'))}
-          </select>
-        </div>
-        <div class="field-group">
-          <label>Credit Wallet City</label>
-          <input type="text" id="tx-credit-wallet-city" value="${escHtml(v('credit_wallet_city'))}" />
-        </div>
-        <div class="field-group"></div>
-        <div class="field-group">
-          <label>Credit Rate %</label>
-          <input type="number" id="tx-credit-rate" value="${cRateDisplay}" step="0.0001" min="0" placeholder="0.00"
-            oninput="onEditRateChange('credit')" />
-        </div>
-        <div class="field-group">
-          <label>Credit Commission</label>
-          <input type="number" id="tx-credit-comm" value="${cCommDisplay}" step="0.001" min="0" placeholder="0"
-            oninput="onEditCommChange('credit')" />
-        </div>
-        <div class="field-group" style="display:flex;align-items:flex-end">
-          <div id="tx-credit-preview" style="font-size:0.8rem;color:#6b7280;padding-bottom:0.5rem"></div>
-        </div>
-      </div>
-
-      <div id="tx-form-error" class="alert alert-error" style="display:none"></div>
-    </form>`;
 }
 
 function exportTransactions(format) {
