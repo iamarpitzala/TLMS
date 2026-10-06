@@ -267,9 +267,10 @@ router.patch('/:id', requireOperator, async (req, res) => {
 
       // If already Verified, keep ledger entries in sync with updated values
       if (tx.status === 'Verified') {
-        // Both ledger amounts = base + commission (commission sign drives the direction)
+        // Debit ledger  = base + dComm  (negative dComm subtracts, positive adds)
+        // Credit ledger = base - cComm  (negative cComm adds, positive subtracts)
         const debitAmt  = parseFloat((amt + dComm).toFixed(4));
-        const creditAmt = parseFloat((amt + cComm).toFixed(4));
+        const creditAmt = parseFloat((amt - cComm).toFixed(4));
 
         await client.query(`
           UPDATE ledger_entries SET
@@ -353,10 +354,10 @@ router.patch('/:id/verify', requireOperator, async (req, res) => {
     const cComm = parseFloat(tx.credit_commission) || 0;
     const baseAmt = parseFloat(tx.amount);
 
-    // Both ledger amounts = base + commission (commission sign drives the direction)
-    // e.g. dComm=+100 → debit 100100; cComm=-100 → credit 99900
+    // Debit ledger  = base + dComm  (negative dComm subtracts, positive adds)
+    // Credit ledger = base - cComm  (negative cComm adds, positive subtracts)
     const debitAmt  = parseFloat((baseAmt + dComm).toFixed(4));
-    const creditAmt = parseFloat((baseAmt + cComm).toFixed(4));
+    const creditAmt = parseFloat((baseAmt - cComm).toFixed(4));
 
     await client.query('BEGIN');
 
