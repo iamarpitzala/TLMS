@@ -41,12 +41,47 @@ router.get('/', requireLogin, async (req, res) => {
     let totalBrokerage = 0, totalAmount = 0;
     rows.forEach(r => { totalBrokerage += r.brokerage || 0; totalAmount += r.amount || 0; });
 
+    // Compute real current balance for this account across ALL dates (ignoring filters)
+    // Opening balance comes from the accounts table; ledger credits add, debits subtract
+    const accRes = await pool.query('SELECT opening_amount FROM accounts WHERE id=$1', [account_id]);
+    const openingAmount = parseFloat(accRes.rows[0]?.opening_amount || 0);
+
+    // If a date_from filter is active, compute the "opening balance for the period"
+    // as: account opening_amount + all credits before date_from - all debits before date_from
+    // This becomes the opening balance row displayed at the top of the filtered ledger.
+    let periodOpeningBalance = openingAmount;
+    if (date_from) {
+      const preRes = await pool.query(`
+        SELECT
+          COALESCE(SUM(CASE WHEN entry_type='credit' THEN amount ELSE 0 END), 0) AS pre_credit,
+          COALESCE(SUM(CASE WHEN entry_type='debit'  THEN amount ELSE 0 END), 0) AS pre_debit
+        FROM ledger_entries
+        WHERE account_id = $1 AND entry_date < $2
+      `, [account_id, date_from]);
+      const preCredit = parseFloat(preRes.rows[0].pre_credit);
+      const preDebit  = parseFloat(preRes.rows[0].pre_debit);
+      periodOpeningBalance = parseFloat((openingAmount + preCredit - preDebit).toFixed(4));
+    }
+
+    const balRes = await pool.query(`
+      SELECT
+        COALESCE(SUM(CASE WHEN entry_type='credit' THEN amount ELSE 0 END), 0) AS total_credit,
+        COALESCE(SUM(CASE WHEN entry_type='debit'  THEN amount ELSE 0 END), 0) AS total_debit
+      FROM ledger_entries
+      WHERE account_id = $1
+    `, [account_id]);
+    const totalCredit = parseFloat(balRes.rows[0].total_credit);
+    const totalDebit  = parseFloat(balRes.rows[0].total_debit);
+    const currentBalance = parseFloat((openingAmount + totalCredit - totalDebit).toFixed(4));
+
     res.json({
       data: rows,
       totals: {
         brokerage: parseFloat(totalBrokerage.toFixed(2)),
         amount:    parseFloat(totalAmount.toFixed(2))
-      }
+      },
+      currentBalance,
+      periodOpeningBalance
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -31,7 +31,7 @@ async function renderLedger() {
         <div class="ledger-toolbar-right">
           <button class="btn btn-outline btn-sm" onclick="exportLedger('pdf')">PDF</button>
           <button class="btn btn-outline btn-sm" onclick="exportLedger('excel')">CSV</button>
-          <span class="led-balance-label">Total Balance:</span>
+          <span class="led-balance-label">Current Balance:</span>
           <span id="led-total-balance" class="led-balance-value">—</span>
         </div>
       </div>
@@ -101,25 +101,37 @@ async function loadLedger() {
 
   try {
     const result = await API.get('/api/ledger' + q);
-    renderLedgerTable(result.data, result.totals);
+    renderLedgerTable(result.data, result.totals, result.currentBalance, result.periodOpeningBalance);
   } catch (e) {
     wrap.innerHTML = `<div class="alert alert-error" style="margin:1rem">${escHtml(e.message)}</div>`;
   }
 }
 
-function renderLedgerTable(rows, totals) {
+function renderLedgerTable(rows, totals, currentBalance, periodOpeningBalance) {
   const wrap  = document.getElementById('ledger-table-wrap');
   const balEl = document.getElementById('led-total-balance');
 
   if (rows.length === 0) {
     wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">📖</div><p>No entries found for this account in the selected period.</p></div>`;
-    if (balEl) { balEl.textContent = '—'; balEl.style.color = ''; }
+    // Still show current balance even when filtered view has no rows
+    if (balEl && currentBalance != null) {
+      const sign  = currentBalance >= 0 ? 'Cr' : 'Dr';
+      const color = currentBalance >= 0 ? '#16a34a' : '#dc2626';
+      balEl.textContent = `${fmtAmt(Math.abs(currentBalance))} ${sign}`;
+      balEl.style.color = color;
+    } else if (balEl) {
+      balEl.textContent = '—'; balEl.style.color = '';
+    }
     return;
   }
 
   const accountId = parseInt(document.getElementById('led-account').value);
   const acc = APP.accounts.find(a => a.id === accountId);
-  const opening = acc ? (acc.opening_amount || 0) : 0;
+  // Use periodOpeningBalance from the API (closing balance just before the from-date filter).
+  // Falls back to the account's raw opening_amount if not provided.
+  const opening = periodOpeningBalance != null
+    ? periodOpeningBalance
+    : (acc ? (acc.opening_amount || 0) : 0);
 
   let runningBal = opening;
   let totalCr = 0, totalDr = 0, totalBrok = 0;
@@ -142,7 +154,13 @@ function renderLedgerTable(rows, totals) {
   const finalBal = runningBal;
   const balSign  = finalBal >= 0 ? 'Cr' : 'Dr';
   const balColor = finalBal >= 0 ? '#16a34a' : '#dc2626';
-  if (balEl) { balEl.textContent = `${fmtAmt(Math.abs(finalBal))} ${balSign}`; balEl.style.color = balColor; }
+  // "Total Balance" always shows the real current balance (all-time, ignoring date filters)
+  if (balEl && currentBalance != null) {
+    const curSign  = currentBalance >= 0 ? 'Cr' : 'Dr';
+    const curColor = currentBalance >= 0 ? '#16a34a' : '#dc2626';
+    balEl.textContent = `${fmtAmt(Math.abs(currentBalance))} ${curSign}`;
+    balEl.style.color = curColor;
+  }
 
   const narDisplay = showNarration ? '' : 'none';
 
