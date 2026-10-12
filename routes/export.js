@@ -6,8 +6,8 @@ const { requireLogin } = require('../middleware/auth');
 const router = express.Router();
 
 // Scale stored '000s value to display rupees (mirrors fmtAmt on frontend)
-const toDisplay = (n) => parseFloat(((parseFloat(n) || 0) * 1000).toFixed(2));
-const fmtNum    = (n) => toDisplay(n).toFixed(2);
+const toDisplay = (n) => parseFloat(((parseFloat(n) || 0) * 1000).toFixed(3));
+const fmtNum    = (n) => toDisplay(n).toFixed(3);
 
 // ─── Helper: ledger data ──────────────────────────────────────────────────
 async function getLedgerData(account_id, type, date_from, date_to) {
