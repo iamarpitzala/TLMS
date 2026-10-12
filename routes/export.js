@@ -6,7 +6,7 @@ const { requireLogin } = require('../middleware/auth');
 const router = express.Router();
 
 // Scale stored '000s value to display rupees (mirrors fmtAmt on frontend)
-const toDisplay = (n) => parseFloat(((parseFloat(n) || 0) * 1000).toFixed(3));
+const toDisplay = (n) => parseFloat(((parseFloat(n) || 0)).toFixed(3));
 const fmtNum    = (n) => toDisplay(n).toFixed(3);
 
 // ─── Helper: ledger data ──────────────────────────────────────────────────
@@ -193,9 +193,9 @@ router.get('/ledger/pdf', requireLogin, async (req, res) => {
   let curY = doc.y + 10;
   curY = drawHeader(curY);
 
-  const obCr = runBal >= 0 ? runBal.toFixed(2) : '';
-  const obDr = runBal < 0  ? Math.abs(runBal).toFixed(2) : '';
-  const obBal = `${Math.abs(runBal).toFixed(2)} ${runBal >= 0 ? 'Cr' : 'Dr'}`;
+  const obCr = runBal >= 0 ? runBal.toFixed(3) : '';
+  const obDr = runBal < 0  ? Math.abs(runBal).toFixed(3) : '';
+  const obBal = `${Math.abs(runBal).toFixed(3)} ${runBal >= 0 ? 'Cr' : 'Dr'}`;
   curY = drawRow(curY, { id: '', date: '', part: 'Opening Balance', msg: 'Opening Balance',
     brok: '', cr: obCr, dr: obDr, bal: obBal }, false);
 
@@ -220,16 +220,16 @@ router.get('/ledger/pdf', requireLogin, async (req, res) => {
     else          { runBal -= ledgerAmt; totalDr += dispAmt; }
     totalBrok += dispBrok;
 
-    const balStr = `${Math.abs(runBal).toFixed(2)} ${runBal >= 0 ? 'Cr' : 'Dr'}`;
+    const balStr = `${Math.abs(runBal).toFixed(3)} ${runBal >= 0 ? 'Cr' : 'Dr'}`;
 
     curY = drawRow(curY, {
       id:   String(r.id),
       date: r.entry_date || '',
       part: r.particulars || '',
       msg:  r.message || '',
-      brok: dispBrok !== 0 ? dispBrok.toFixed(2) : '',
-      cr:   isCredit ? dispAmt.toFixed(2) : '',
-      dr:   isDebit  ? dispAmt.toFixed(2) : '',
+      brok: dispBrok !== 0 ? dispBrok.toFixed(3) : '',
+      cr:   isCredit ? dispAmt.toFixed(3) : '',
+      dr:   isDebit  ? dispAmt.toFixed(3) : '',
       bal:  balStr,
     }, idx % 2 === 0);
   });
@@ -240,10 +240,10 @@ router.get('/ledger/pdf', requireLogin, async (req, res) => {
   doc.fontSize(8).font('Helvetica-Bold').fillColor('#000000');
   const ty = curY + 5;
   doc.text('TOTAL', C.id, ty, { width: W.id + W.date + W.part + W.msg, lineBreak: false });
-  doc.text(totalBrok !== 0 ? totalBrok.toFixed(2) : '', C.brok, ty, { width: W.brok, align: 'right', lineBreak: false });
-  doc.text(totalCr.toFixed(2), C.cr, ty, { width: W.cr, align: 'right', lineBreak: false });
-  doc.text(totalDr.toFixed(2), C.dr, ty, { width: W.dr, align: 'right', lineBreak: false });
-  doc.text(`${Math.abs(runBal).toFixed(2)} ${runBal >= 0 ? 'Cr' : 'Dr'}`, C.bal, ty, { width: W.bal, align: 'right', lineBreak: false });
+  doc.text(totalBrok !== 0 ? totalBrok.toFixed(3) : '', C.brok, ty, { width: W.brok, align: 'right', lineBreak: false });
+  doc.text(totalCr.toFixed(3), C.cr, ty, { width: W.cr, align: 'right', lineBreak: false });
+  doc.text(totalDr.toFixed(3), C.dr, ty, { width: W.dr, align: 'right', lineBreak: false });
+  doc.text(`${Math.abs(runBal).toFixed(3)} ${runBal >= 0 ? 'Cr' : 'Dr'}`, C.bal, ty, { width: W.bal, align: 'right', lineBreak: false });
 
   doc.end();
 });
@@ -279,10 +279,10 @@ router.get('/ledger/excel', requireLogin, async (req, res) => {
     const dispAmt  = (!isNaN(base) && base !== 0) ? toDisplay(base) : toDisplay(r.amount);
     const dispBrok = toDisplay(r.brokerage); // signed
     ws.addRow([r.id, r.entry_date, r.particulars||'', r.message||'',
-      parseFloat(dispBrok.toFixed(2)), parseFloat(dispAmt.toFixed(2))]);
+      parseFloat(dispBrok.toFixed(3)), parseFloat(dispAmt.toFixed(3))]);
     tb += dispBrok; ta += dispAmt;
   });
-  const tr = ws.addRow(['','','','TOTAL', parseFloat(tb.toFixed(2)), parseFloat(ta.toFixed(2))]);
+  const tr = ws.addRow(['','','','TOTAL', parseFloat(tb.toFixed(3)), parseFloat(ta.toFixed(3))]);
   tr.font = {bold:true};
   ws.columns = [{width:8},{width:14},{width:35},{width:30},{width:14},{width:14}];
 
@@ -316,17 +316,17 @@ router.get('/trial-balance/pdf', requireLogin, async (req, res) => {
   rows.forEach(r => {
     const y = doc.y;
     doc.text(r.account_name, cols[0], y, {width:175});
-    doc.text(r.opening_credit.toFixed(2), cols[1], y, {width:95});
-    doc.text(r.opening_debit.toFixed(2),  cols[2], y, {width:95});
-    doc.text(r.closing_credit.toFixed(2), cols[3], y, {width:95});
-    doc.text(r.closing_debit.toFixed(2),  cols[4], y, {width:95});
+    doc.text(r.opening_credit.toFixed(3), cols[1], y, {width:95});
+    doc.text(r.opening_debit.toFixed(3),  cols[2], y, {width:95});
+    doc.text(r.closing_credit.toFixed(3), cols[3], y, {width:95});
+    doc.text(r.closing_debit.toFixed(3),  cols[4], y, {width:95});
     doc.moveDown(0.7);
     tOC+=r.opening_credit; tOD+=r.opening_debit; tCC+=r.closing_credit; tCD+=r.closing_debit;
   });
   doc.moveTo(40,doc.y).lineTo(760,doc.y).stroke(); doc.moveDown(0.3);
   doc.font('Helvetica-Bold').fontSize(9);
   const ty=doc.y;
-  ['TOTAL',tOC.toFixed(2),tOD.toFixed(2),tCC.toFixed(2),tCD.toFixed(2)].forEach((v,i) =>
+  ['TOTAL',tOC.toFixed(3),tOD.toFixed(3),tCC.toFixed(3),tCD.toFixed(3)].forEach((v,i) =>
     doc.text(v, cols[i]||cols[4], ty, {width:i===0?175:95}));
   doc.end();
 });
@@ -351,11 +351,11 @@ router.get('/trial-balance/excel', requireLogin, async (req, res) => {
   hr.eachCell(c=>{c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFD9E1F2'}};c.border={bottom:{style:'thin'}};});
   let tOC=0,tOD=0,tCC=0,tCD=0;
   rows.forEach(r=>{
-    ws.addRow([r.account_name,parseFloat(r.opening_credit.toFixed(2)),parseFloat(r.opening_debit.toFixed(2)),
-      parseFloat(r.closing_credit.toFixed(2)),parseFloat(r.closing_debit.toFixed(2))]);
+    ws.addRow([r.account_name,parseFloat(r.opening_credit.toFixed(3)),parseFloat(r.opening_debit.toFixed(3)),
+      parseFloat(r.closing_credit.toFixed(3)),parseFloat(r.closing_debit.toFixed(3))]);
     tOC+=r.opening_credit;tOD+=r.opening_debit;tCC+=r.closing_credit;tCD+=r.closing_debit;
   });
-  const tr=ws.addRow(['TOTAL',parseFloat(tOC.toFixed(2)),parseFloat(tOD.toFixed(2)),parseFloat(tCC.toFixed(2)),parseFloat(tCD.toFixed(2))]);
+  const tr=ws.addRow(['TOTAL',parseFloat(tOC.toFixed(3)),parseFloat(tOD.toFixed(3)),parseFloat(tCC.toFixed(3)),parseFloat(tCD.toFixed(3))]);
   tr.font={bold:true};
   ws.columns=[{width:35},{width:18},{width:18},{width:18},{width:18}];
 
@@ -407,9 +407,9 @@ router.get('/transactions/pdf', requireLogin, async (req, res) => {
   doc.font('Helvetica-Bold').fontSize(8);
   const ty=doc.y;
   doc.text('TOTAL',cols[0],ty,{width:350});
-  doc.text(tA.toFixed(2),cols[4],ty,{width:widths[4]});
-  doc.text(tDC.toFixed(2),cols[5],ty,{width:widths[5]});
-  doc.text(tCC.toFixed(2),cols[6],ty,{width:widths[6]});
+  doc.text(tA.toFixed(3),cols[4],ty,{width:widths[4]});
+  doc.text(tDC.toFixed(3),cols[5],ty,{width:widths[5]});
+  doc.text(tCC.toFixed(3),cols[6],ty,{width:widths[6]});
   doc.end();
 });
 
@@ -442,7 +442,7 @@ router.get('/transactions/excel', requireLogin, async (req, res) => {
       toDisplay(r.credit_commission), r.status, r.created_by_name||'', r.remarks||'', r.message||'']);
     tA+=toDisplay(r.amount); tDC+=toDisplay(r.debit_commission); tCC+=toDisplay(r.credit_commission);
   });
-  const tr=ws.addRow(['TOTAL','','','','',parseFloat(tA.toFixed(2)),'',parseFloat(tDC.toFixed(2)),'',parseFloat(tCC.toFixed(2)),'','','','']);
+  const tr=ws.addRow(['TOTAL','','','','',parseFloat(tA.toFixed(3)),'',parseFloat(tDC.toFixed(3)),'',parseFloat(tCC.toFixed(3)),'','','','']);
   tr.font={bold:true};
   ws.columns=[{width:22},{width:14},{width:18},{width:25},{width:25},{width:14},{width:12},{width:18},{width:12},{width:18},{width:22},{width:16},{width:25},{width:30}];
 

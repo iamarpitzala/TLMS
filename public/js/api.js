@@ -105,7 +105,7 @@ function fmtNum(n) {
 // Use fmtAmt wherever the full rupee value should be displayed.
 function fmtAmt(n) {
   if (n === null || n === undefined) return '-';
-  return (parseFloat(n) * 1000).toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  return parseFloat(n).toFixed(3);
 }
 
 function fmtDate(d) {
