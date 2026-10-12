@@ -7,8 +7,8 @@
     "node": "22.x"
   },
   "scripts": {
-    "start": "node server.js",
-    "dev": "cross-env NODE_ENV=development node server.js",
+    "start": "node init && node server.js",
+    "dev": "node init && cross-env NODE_ENV=development node server.js",
     "prod": "cross-env NODE_ENV=production node server.js",
     "backup": "node scripts/backup.js"
   },

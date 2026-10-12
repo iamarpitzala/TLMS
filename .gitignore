@@ -2,7 +2,6 @@
 node_modules/
 
 # Environment — never commit real secrets
-.env
 
 # SQLite database files
 *.db
@@ -17,9 +16,9 @@ backups/
 npm-debug.log*
 
 # IDE
-.vscode/
 .idea/
 
 # OS
 .DS_Store
 Thumbs.db
+config.bat
