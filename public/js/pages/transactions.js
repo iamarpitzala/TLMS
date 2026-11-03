@@ -410,9 +410,15 @@ function renderTxTable({ data, total, page, limit }) {
               <td data-label="C.Comm" style="text-align:right;color:#2e7d32">${fmtAmt(tx.credit_commission)}</td>
               <td data-label="Remarks" style="color:#6b7280;font-size:0.82rem">${escHtml(tx.remarks) || '—'}</td>
               <td data-label="Status" style="text-align:center">
+                ${canAct && (isPending || APP.isAdmin()) ? `
+                <span class="badge ${isPending ? 'badge-pending' : 'badge-verified'}"
+                  style="cursor:pointer" title="${isPending ? 'Click to approve' : 'Click to un-approve'}"
+                  onclick="toggleTxStatus(${tx.id}, ${isPending}, this)">
+                  ${isPending ? 'pending' : 'approved'}
+                </span>` : `
                 <span class="badge ${isPending ? 'badge-pending' : 'badge-verified'}">
                   ${isPending ? 'pending' : 'approved'}
-                </span>
+                </span>`}
               </td>
               <td class="td-actions" style="text-align:center">
                 <div style="display:inline-flex;align-items:center;gap:4px">
@@ -553,17 +559,18 @@ async function editTransaction(txId) {
 
   set('te-date',   tx.transaction_date || '');
   set('te-token',  tx.token_details    || '');
-  set('te-amount', tx.amount           || '');
+  // Amount is stored in '000s units — show with 3 decimal places to preserve trailing zeros
+  set('te-amount', tx.amount != null ? parseFloat(tx.amount).toFixed(3) : '');
   set('te-city',   tx.transaction_city || '');
   set('te-remarks',tx.remarks          || '');
   set('te-debit',  tx.debit_party_id   || '');
   set('te-credit', tx.credit_party_id  || '');
 
-  // Commission stored as-is (same units as amount), no scaling needed
+  // Commission is stored ÷1000 in the DB; ×1000 to restore the entered rupee value
   const dRate = parseFloat(tx.debit_rate)  || '';
   const cRate = parseFloat(tx.credit_rate) || '';
-  const dComm = (tx.debit_commission  != null && tx.debit_commission  !== '') ? parseFloat(parseFloat(tx.debit_commission).toFixed(4))  : '';
-  const cComm = (tx.credit_commission != null && tx.credit_commission !== '') ? parseFloat(parseFloat(tx.credit_commission).toFixed(4)) : '';
+  const dComm = (tx.debit_commission  != null && tx.debit_commission  !== '') ? parseFloat((parseFloat(tx.debit_commission)  * 1000).toFixed(4)) : '';
+  const cComm = (tx.credit_commission != null && tx.credit_commission !== '') ? parseFloat((parseFloat(tx.credit_commission) * 1000).toFixed(4)) : '';
   set('te-debit-rate',  dRate);
   set('te-debit-comm',  dComm);
   set('te-credit-rate', cRate);
@@ -601,6 +608,37 @@ async function unapproveTransaction(txId) {
     toast('Transaction reverted to Pending', 'success');
     loadTransactions(txPage);
   } catch (e) { toast(e.message, 'error'); }
+}
+
+async function toggleTxStatus(txId, isPending, badgeEl) {
+  badgeEl.style.pointerEvents = 'none';
+  badgeEl.style.opacity = '0.5';
+  const prev = badgeEl.textContent.trim();
+  badgeEl.textContent = '…';
+
+  try {
+    if (isPending) {
+      const updated = await API.patch(`/api/transactions/${txId}/verify`, {});
+      badgeEl.className = 'badge badge-verified';
+      badgeEl.textContent = 'approved';
+      badgeEl.title = 'Click to un-approve';
+      badgeEl.onclick = () => toggleTxStatus(txId, false, badgeEl);
+      toast(`${updated.voucher_number} approved`, 'success');
+    } else {
+      await API.patch(`/api/transactions/${txId}/unapprove`, {});
+      badgeEl.className = 'badge badge-pending';
+      badgeEl.textContent = 'pending';
+      badgeEl.title = 'Click to approve';
+      badgeEl.onclick = () => toggleTxStatus(txId, true, badgeEl);
+      toast('Transaction reverted to Pending', 'success');
+    }
+  } catch (e) {
+    badgeEl.textContent = prev;
+    toast(e.message, 'error');
+  } finally {
+    badgeEl.style.pointerEvents = '';
+    badgeEl.style.opacity = '';
+  }
 }
 
 async function deleteTransaction(txId, voucherNumber) {
